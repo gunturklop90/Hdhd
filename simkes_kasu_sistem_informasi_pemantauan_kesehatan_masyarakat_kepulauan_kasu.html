@@ -1,0 +1,2011 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIMKES-KASU | Sistem Informasi Pemantauan Kesehatan Masyarakat Kepulauan Kasu</title>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Leaflet.js CSS & JS for Interactive Maritime GIS Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Chart.js for Epidemiological & Demographic Visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        maritime: {
+                            950: '#041E2B',
+                            900: '#0A2E3F',
+                            800: '#0F4C68',
+                            700: '#13678A',
+                            600: '#0D9488',
+                            500: '#14B8A6',
+                            100: '#CCFBF1',
+                            50: '#F0FDFA'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom scrollbar & print optimization */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .leaflet-container {
+            font-family: 'Inter', sans-serif !important;
+            z-index: 10;
+        }
+        
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: white !important; }
+            #main-content { margin-left: 0 !important; padding: 0 !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased selection:bg-teal-600 selection:text-white">
+
+    <!-- Toast Notification Container (Replaces alert()) -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Mobile Sidebar Overlay -->
+    <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-30 hidden lg:hidden transition-opacity"></div>
+
+    <!-- SIDEBAR NAVIGATION -->
+    <aside id="sidebar" class="no-print fixed top-0 left-0 z-40 h-screen w-72 bg-gradient-to-b from-maritime-950 via-maritime-900 to-maritime-800 text-white transition-transform duration-300 -translate-x-full lg:translate-x-0 flex flex-col shadow-2xl border-r border-slate-700/50">
+        <!-- Brand Header -->
+        <div class="p-5 border-b border-white/10 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-400 to-sky-500 flex items-center justify-center text-maritime-950 font-extrabold text-lg shadow-lg">
+                    <i class="fa-solid fa-anchor"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-base tracking-tight leading-tight text-white">SIMKES-KASU</h1>
+                    <p class="text-[11px] text-teal-300 font-medium">Kel. Kasu • Belakang Padang</p>
+                </div>
+            </div>
+            <button onclick="toggleSidebar()" class="lg:hidden text-slate-300 hover:text-white p-1.5 rounded-lg">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <!-- Quick Environmental Badge -->
+        <div class="px-4 py-3 bg-white/5 border-b border-white/10 text-xs">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-slate-300 flex items-center gap-1.5"><i class="fa-solid fa-water text-sky-400"></i> Perairan Kasu (BMKG)</span>
+                <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold text-[10px] border border-emerald-500/30">Gelombang 0.6 m • Aman</span>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-slate-300 flex items-center gap-1.5"><i class="fa-solid fa-tower-cell text-teal-400"></i> Sinyal Seluler (Kominfo)</span>
+                <span class="text-amber-300 font-medium text-[11px]">4G Terbatas (1 Blankspot)</span>
+            </div>
+        </div>
+
+        <!-- Navigation Menu (10 Wajib + Dokumentasi Proyek) -->
+        <nav class="flex-1 overflow-y-auto py-3 px-3 space-y-1 text-sm">
+            <div class="px-3 pt-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">Pemantauan Utama</div>
+            
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left font-medium transition-all bg-teal-600 text-white shadow-md">
+                <i class="fa-solid fa-chart-line w-5 text-center"></i>
+                <span>1. Dashboard Kesehatan</span>
+            </button>
+
+            <button onclick="switchTab('demografi')" id="nav-demografi" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-all">
+                <i class="fa-solid fa-users-viewfinder w-5 text-center"></i>
+                <span>2. Demografi & Profil Pulau</span>
+            </button>
+
+            <button onclick="switchTab('kesehatan')" id="nav-kesehatan" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-all">
+                <i class="fa-solid fa-notes-medical w-5 text-center"></i>
+                <span>3. Pemantauan Kasus</span>
+            </button>
+
+            <button onclick="switchTab('faskes')" id="nav-faskes" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-all">
+                <i class="fa-solid fa-hospital w-5 text-center"></i>
+                <span>4. Fasilitas Kesehatan</span>
+            </button>
+
+            <div class="px-3 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">Spasial & Transportasi</div>
+
+            <button onclick="switchTab('transportasi')" id="nav-transportasi" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-all">
+                <i class="fa-solid fa-ferry w-5 text-center"></i>
+                <span>5. Transportasi Laut & Darat</span>
+            </button>
+
+            <button onclick="switchTab('peta-jarak')" id="nav-peta-jarak" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-all">
+                <i class="fa-solid fa-route w-5 text-center"></i>
+                <span>6. Peta Jarak & Waktu Tempuh</span>
+            </button>
+
+            <button onclick="switchTab('peta-penyakit')" id="nav-peta-penyakit" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-all">
+                <i class="fa-solid fa-map-location-dot w-5 text-center"></i>
+                <span>7. Sebaran Masalah Kes.</span>
+            </button>
+
+            <button onclick="switchTab('aksesibilitas')" id="nav-aksesibilitas" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-all">
+                <i class="fa-solid fa-universal-access w-5 text-center"></i>
+                <span>8. Analisis Aksesibilitas</span>
+            </button>
+
+            <div class="px-3 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">Klinis & Luaran Proyek</div>
+
+            <button onclick="switchTab('rujukan')" id="nav-rujukan" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-all">
+                <i class="fa-solid fa-truck-medical w-5 text-center text-rose-400"></i>
+                <span>9. Sistem Rujukan Darurat</span>
+            </button>
+
+            <button onclick="switchTab('laporan')" id="nav-laporan" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-all">
+                <i class="fa-solid fa-file-medical-alt w-5 text-center text-amber-400"></i>
+                <span>10. Laporan, ERD & Peran Ners</span>
+            </button>
+        </nav>
+
+        <!-- Footer Info -->
+        <div class="p-4 border-t border-white/10 bg-black/20 text-[11px] text-slate-400">
+            <p class="font-semibold text-slate-200">Keperawatan Komunitas Kepulauan</p>
+            <p>Wilayah Kerja Puskesmas Belakang Padang • Kota Batam, Kepri</p>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT WRAPPER -->
+    <div id="main-content" class="lg:ml-72 min-h-screen flex flex-col">
+        
+        <!-- Top Header Bar -->
+        <header class="no-print sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4 shadow-xs">
+            <div class="flex items-center gap-3">
+                <button onclick="toggleSidebar()" class="lg:hidden p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span id="header-badge" class="px-2.5 py-0.5 rounded-md bg-teal-50 text-teal-700 border border-teal-200 text-xs font-semibold">Modul 01</span>
+                        <h2 id="header-title" class="text-base sm:text-lg font-bold text-slate-900 line-clamp-1">Dashboard Kesehatan Masyarakat Kepulauan Kasu</h2>
+                    </div>
+                    <p id="header-subtitle" class="text-xs text-slate-500 hidden sm:block">Pemantauan Real-Time Epidemiologi, Cuaca Maritim & Akses Layanan Primer</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 sm:gap-3">
+                <button onclick="switchTab('rujukan')" class="px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
+                    <i class="fa-solid fa-kit-medical animate-pulse"></i>
+                    <span class="hidden sm:inline">Simulasi Rujukan</span>
+                </button>
+                <button onclick="switchTab('laporan')" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-book-open"></i>
+                    <span class="hidden md:inline">Panduan & Sumber Data</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- CONTENT SECTIONS CONTAINER -->
+        <main class="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
+
+            <!-- ===================================================================== -->
+            <!-- TAB 1: DASHBOARD KESEHATAN MASYARAKAT                                 -->
+            <!-- ===================================================================== -->
+            <section id="tab-dashboard" class="tab-section space-y-6">
+                
+                <!-- Academic & Data Ethics Banner -->
+                <div class="bg-gradient-to-r from-maritime-900 via-maritime-800 to-teal-800 rounded-2xl p-5 sm:p-6 text-white shadow-lg relative overflow-hidden">
+                    <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div class="space-y-1.5 max-w-3xl">
+                            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-medium text-teal-200">
+                                <i class="fa-solid fa-shield-halved"></i>
+                                <span>Sistem Informasi Kesehatan Masyarakat Kepulauan (SIK-Kepulauan)</span>
+                            </div>
+                            <h3 class="text-xl sm:text-2xl font-bold tracking-tight">Kelurahan Kasu, Kecamatan Belakang Padang, Kota Batam</h3>
+                            <p class="text-xs sm:text-sm text-slate-200 leading-relaxed">
+                                Integrasi pemantauan kesehatan masyarakat gugusan pulau kecil (Pulau Kasu Induk, Pulau Pecong, dan pulau satelit sekitar) untuk mendukung perencanaan asuhan keperawatan komunitas, mitigasi cuaca maritim, dan rujukan berjenjang.
+                            </p>
+                        </div>
+                        <div class="flex flex-wrap gap-2 shrink-0">
+                            <button onclick="switchTab('peta-jarak')" class="px-4 py-2.5 rounded-xl bg-teal-400 hover:bg-teal-300 text-maritime-950 font-bold text-xs flex items-center gap-2 shadow transition">
+                                <i class="fa-solid fa-map"></i> Buka Peta Maritim
+                            </button>
+                            <button onclick="switchTab('kesehatan')" class="px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-semibold text-xs flex items-center gap-2 border border-white/20 transition">
+                                <i class="fa-solid fa-plus"></i> Input Pantauan Ners
+                            </button>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-compass absolute -right-6 -bottom-8 text-9xl text-white/5 pointer-events-none"></i>
+                </div>
+
+                <!-- 4 Main KPI Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <!-- KPI 1 -->
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Penduduk Kasu</p>
+                                <h4 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">3.142 <span class="text-sm font-medium text-slate-500">Jiwa</span></h4>
+                            </div>
+                            <div class="w-11 h-11 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center text-lg">
+                                <i class="fa-solid fa-people-group"></i>
+                            </div>
+                        </div>
+                        <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <span class="text-slate-600">846 KK • 3 Pulau Berpenghuni</span>
+                            <span class="text-sky-600 font-semibold">BPS Batam</span>
+                        </div>
+                    </div>
+
+                    <!-- KPI 2 -->
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Faskes & Pos Layanan</p>
+                                <h4 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">5 <span class="text-sm font-medium text-slate-500">Unit Aktif</span></h4>
+                            </div>
+                            <div class="w-11 h-11 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-lg">
+                                <i class="fa-solid fa-house-medical"></i>
+                            </div>
+                        </div>
+                        <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <span class="text-slate-600">1 Pustu, 1 Poskesdes, 3 Posyandu</span>
+                            <span class="text-teal-600 font-semibold">Dinkes Batam</span>
+                        </div>
+                    </div>
+
+                    <!-- KPI 3 -->
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Kasus Pemantauan Aktif</p>
+                                <h4 id="kpi-active-cases" class="text-2xl sm:text-3xl font-extrabold text-amber-600 mt-1">148 <span class="text-sm font-medium text-slate-500">Kasus</span></h4>
+                            </div>
+                            <div class="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-lg">
+                                <i class="fa-solid fa-heart-pulse"></i>
+                            </div>
+                        </div>
+                        <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <span class="text-slate-600">HT (62), ISPA (44), Bumil Risti (14)</span>
+                            <span class="text-amber-600 font-semibold">Simulasi Pustu</span>
+                        </div>
+                    </div>
+
+                    <!-- KPI 4 -->
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Status Cuaca & Sinyal</p>
+                                <h4 class="text-xl sm:text-2xl font-extrabold text-emerald-600 mt-1">Kondusif <span class="text-xs font-semibold px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full">0.6 m</span></h4>
+                            </div>
+                            <div class="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+                                <i class="fa-solid fa-wind"></i>
+                            </div>
+                        </div>
+                        <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <span class="text-slate-600">Angin 9 Knot • Sinyal 4G (68%)</span>
+                            <span class="text-emerald-600 font-semibold">BMKG & Kominfo</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Middle Row: Charts & Environmental Monitoring -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Chart: Epidemiological Trend -->
+                    <div class="lg:col-span-2 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                            <div>
+                                <h3 class="font-bold text-slate-900 text-base">Tren Bulanan Masalah Kesehatan Utama Kelurahan Kasu</h3>
+                                <p class="text-xs text-slate-500">Data agregat pemantauan Pustu Kasu & Puskesmas Belakang Padang (Simulasi Epidemiologi)</p>
+                            </div>
+                            <span class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 font-medium self-start">Periode 6 Bulan Terakhir</span>
+                        </div>
+                        <div class="h-72 w-full">
+                            <canvas id="dashboardTrendChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Panel: Cuaca Laut BMKG & Konektivitas Kominfo -->
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex flex-col justify-between space-y-4">
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="font-bold text-slate-900 text-base">Intelijen Maritim & Sinyal</h3>
+                                <span class="text-[11px] font-semibold text-sky-700 bg-sky-50 px-2.5 py-0.5 rounded-full border border-sky-200">Live Simulasi</span>
+                            </div>
+
+                            <!-- BMKG Box -->
+                            <div class="p-3.5 rounded-xl bg-sky-50/70 border border-sky-200/80 space-y-2 mb-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-sky-900 flex items-center gap-1.5"><i class="fa-solid fa-cloud-sun-rain text-sky-600"></i> Prakiraan Laut BMKG Hang Nadim</span>
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-600 text-white">PELAYARAN AMAN</span>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2 text-center pt-1">
+                                    <div class="bg-white p-2 rounded-lg border border-sky-100">
+                                        <p class="text-[10px] text-slate-500">Gelombang</p>
+                                        <p class="text-xs font-bold text-slate-800">0.5 - 0.8 m</p>
+                                    </div>
+                                    <div class="bg-white p-2 rounded-lg border border-sky-100">
+                                        <p class="text-[10px] text-slate-500">Angin</p>
+                                        <p class="text-xs font-bold text-slate-800">8 - 12 kt</p>
+                                    </div>
+                                    <div class="bg-white p-2 rounded-lg border border-sky-100">
+                                        <p class="text-[10px] text-slate-500">Arus Laut</p>
+                                        <p class="text-xs font-bold text-slate-800">Tenggara</p>
+                                    </div>
+                                </div>
+                                <p class="text-[11px] text-slate-600 leading-snug">
+                                    *Catatan Musim: Waspada gelombang >1.5 m pada puncak Musim Angin Utara (Des–Feb) yang menghambat pompong kecil ke Belakang Padang.
+                                </p>
+                            </div>
+
+                            <!-- Kominfo Signal Box -->
+                            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5"><i class="fa-solid fa-signal text-teal-600"></i> Jaringan Internet (Kominfo & Survei)</span>
+                                </div>
+                                <div class="space-y-1.5 text-xs">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-slate-600">Pulau Kasu Induk (RW 01-02)</span>
+                                        <span class="font-semibold text-emerald-600">4G Stabil (Telkomsel/XL)</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-slate-600">Pulau Pecong (RW 03)</span>
+                                        <span class="font-semibold text-amber-600">4G Lemah / Fluktuatif</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-slate-600">Pesisir Selatan / Teluk</span>
+                                        <span class="font-semibold text-rose-600">Blankspot (Mode Offline)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
+                            <span>Sumber: BMKG Batam & Observasi Lapangan</span>
+                            <button onclick="switchTab('aksesibilitas')" class="text-teal-700 font-semibold hover:underline">Lihat Analisis &rarr;</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Early Warning & Priority Nursing Alerts -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
+                            <h3 class="font-bold text-slate-900 text-base">Peringatan Dini & Prioritas Intervensi Perawat Komunitas</h3>
+                        </div>
+                        <span class="text-xs text-slate-500">Pembaruan: Hari Ini</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="p-4 rounded-xl bg-rose-50/70 border border-rose-200 flex items-start gap-3">
+                            <div class="w-9 h-9 rounded-lg bg-rose-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+                                <i class="fa-solid fa-person-pregnant"></i>
+                            </div>
+                            <div>
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-rose-700">Prioritas Tinggi • Pulau Pecong</span>
+                                <h4 class="font-bold text-sm text-slate-900 mt-0.5">2 Ibu Hamil KEK & Preeklamsia Ringan</h4>
+                                <p class="text-xs text-slate-600 mt-1">Usia kehamilan 34-36 minggu. Perlu penjadwalan evakuasi terencana ke PONED Puskesmas Belakang Padang sebelum cuaca memburuk.</p>
+                            </div>
+                        </div>
+
+                        <div class="p-4 rounded-xl bg-amber-50/70 border border-amber-200 flex items-start gap-3">
+                            <div class="w-9 h-9 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 mt-0.5">
+                                <i class="fa-solid fa-heart-circle-exclamation"></i>
+                            </div>
+                            <div>
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-amber-700">Penyakit Tidak Menular • P. Kasu</span>
+                                <h4 class="font-bold text-sm text-slate-900 mt-0.5">18 Lansia Hipertensi Tidak Terkontrol</h4>
+                                <p class="text-xs text-slate-600 mt-1">Tingginya konsumsi ikan asin & keterbatasan stok obat antihipertensi bulanan. Rencanakan Posbindu PTM terpadu minggu ini.</p>
+                            </div>
+                        </div>
+
+                        <div class="p-4 rounded-xl bg-teal-50/70 border border-teal-200 flex items-start gap-3">
+                            <div class="w-9 h-9 rounded-lg bg-teal-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+                                <i class="fa-solid fa-child-reaching"></i>
+                            </div>
+                            <div>
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-teal-700">Gizi & Kesehatan Anak • RW 02 & 03</span>
+                                <h4 class="font-bold text-sm text-slate-900 mt-0.5">16 Balita Risiko Stunting & Gizi Kurang</h4>
+                                <p class="text-xs text-slate-600 mt-1">Akses air bersih tadah hujan terbatas saat kemarau memicu diare berulang. Perlu edukasi sanitasi & PMT berbasis pangan lokal laut.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===================================================================== -->
+            <!-- TAB 2: DATA DEMOGRAFI PENDUDUK & PROFIL WILAYAH KEPULAUAN             -->
+            <!-- ===================================================================== -->
+            <section id="tab-demografi" class="tab-section hidden space-y-6">
+                
+                <!-- Profil Wilayah Geografis Kepulauan -->
+                <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                        <div>
+                            <span class="text-xs font-bold text-teal-700 uppercase tracking-wider">Luaran Proyek: Profil Wilayah Kepulauan</span>
+                            <h3 class="text-lg font-bold text-slate-900 mt-0.5">Profil Geografis & Sosiodemografi Kelurahan Kasu</h3>
+                        </div>
+                        <div class="text-xs bg-slate-100 px-3 py-1.5 rounded-lg text-slate-600 font-medium">
+                            <i class="fa-solid fa-database text-teal-600 mr-1"></i> Sumber: BPS Kota Batam (Kec. Belakang Padang dalam Angka) & Kantor Kel. Kasu
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-5">
+                        <div class="lg:col-span-2 space-y-3 text-sm text-slate-700 leading-relaxed">
+                            <p>
+                                <strong>Kelurahan Kasu</strong> merupakan salah satu kelurahan kepulauan di <strong>Kecamatan Belakang Padang, Kota Batam, Provinsi Kepulauan Riau</strong>. Wilayah administratifnya terdiri atas gugusan pulau-pulau kecil di sebelah barat daya Pulau Batam yang dipisahkan oleh selat dan perairan laut dangkal.
+                            </p>
+                            <p>
+                                Permukiman penduduk terkonsentrasi di pesisir pantai (rumah panggung kayu/beton di atas laut dan daratan pesisir) pada tiga klaster utama: <strong>Pulau Kasu Induk (RW 01 & RW 02)</strong> sebagai pusat pemerintahan kelurahan dan Pustu, <strong>Pulau Pecong (RW 03)</strong> sebagai pulau satelit berpenghuni padat, serta gugusan pulau kecil sekitar (seperti <strong>Pulau Teluk Bakau / Pangkil kecil</strong>).
+                            </p>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                    <p class="text-[11px] text-slate-500">Koordinat Pusat</p>
+                                    <p class="text-xs font-bold text-slate-900 mt-0.5">1°04'37"N 103°48'57"E</p>
+                                </div>
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                    <p class="text-[11px] text-slate-500">Luas Daratan</p>
+                                    <p class="text-xs font-bold text-slate-900 mt-0.5">± 6,84 km² (Gugusan)</p>
+                                </div>
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                    <p class="text-[11px] text-slate-500">Jarak ke Kec. Blk Padang</p>
+                                    <p class="text-xs font-bold text-slate-900 mt-0.5">± 11,5 km (± 6,2 NM)</p>
+                                </div>
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                    <p class="text-[11px] text-slate-500">Mayoritas Pekerjaan</p>
+                                    <p class="text-xs font-bold text-slate-900 mt-0.5">Nelayan Tradisional (68%)</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Kelompok Rentan Card -->
+                        <div class="bg-gradient-to-br from-teal-50 to-sky-50 rounded-xl p-4 border border-teal-200/80 space-y-3">
+                            <h4 class="font-bold text-sm text-maritime-900 flex items-center gap-2">
+                                <i class="fa-solid fa-hand-holding-heart text-teal-600"></i> Populasi Kelompok Rentan
+                            </h4>
+                            <div class="space-y-2 text-xs">
+                                <div class="flex justify-between items-center bg-white p-2.5 rounded-lg border border-teal-100">
+                                    <span class="text-slate-600">Bayi & Balita (0–59 Bulan)</span>
+                                    <span class="font-bold text-slate-900">312 Jiwa (9,9%)</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-white p-2.5 rounded-lg border border-teal-100">
+                                    <span class="text-slate-600">Ibu Hamil Terdaftar</span>
+                                    <span class="font-bold text-slate-900">58 Jiwa (1,8%)</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-white p-2.5 rounded-lg border border-teal-100">
+                                    <span class="text-slate-600">Lansia (&ge; 60 Tahun)</span>
+                                    <span class="font-bold text-slate-900">294 Jiwa (9,4%)</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-white p-2.5 rounded-lg border border-teal-100">
+                                    <span class="text-slate-600">Keluarga Pra-Sejahtera</span>
+                                    <span class="font-bold text-amber-700">245 KK (28,9%)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table & Charts Demografi -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <!-- Table Sebaran Penduduk per Pulau/RW -->
+                    <div class="lg:col-span-7 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs overflow-hidden">
+                        <h4 class="font-bold text-slate-900 text-base mb-1">Distribusi Penduduk Berdasarkan Pulau & Wilayah RW</h4>
+                        <p class="text-xs text-slate-500 mb-4">Sumber: Data Agregat Kependudukan Kelurahan Kasu & BPS Kota Batam</p>
+                        
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-slate-100 text-slate-700 border-b border-slate-200">
+                                        <th class="py-3 px-3 font-bold">Pulau / Wilayah</th>
+                                        <th class="py-3 px-3 font-bold text-center">KK</th>
+                                        <th class="py-3 px-3 font-bold text-center">Laki-laki</th>
+                                        <th class="py-3 px-3 font-bold text-center">Perempuan</th>
+                                        <th class="py-3 px-3 font-bold text-center">Total</th>
+                                        <th class="py-3 px-3 font-bold text-center">Balita</th>
+                                        <th class="py-3 px-3 font-bold text-center">Lansia</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="py-3 px-3 font-semibold text-slate-900">Pulau Kasu Induk (RW 01)</td>
+                                        <td class="py-3 px-3 text-center">342</td>
+                                        <td class="py-3 px-3 text-center">658</td>
+                                        <td class="py-3 px-3 text-center">624</td>
+                                        <td class="py-3 px-3 text-center font-bold text-teal-700">1.282</td>
+                                        <td class="py-3 px-3 text-center">124</td>
+                                        <td class="py-3 px-3 text-center">128</td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="py-3 px-3 font-semibold text-slate-900">Pulau Kasu Pesisir (RW 02)</td>
+                                        <td class="py-3 px-3 text-center">256</td>
+                                        <td class="py-3 px-3 text-center">490</td>
+                                        <td class="py-3 px-3 text-center">468</td>
+                                        <td class="py-3 px-3 text-center font-bold text-teal-700">958</td>
+                                        <td class="py-3 px-3 text-center">96</td>
+                                        <td class="py-3 px-3 text-center">89</td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="py-3 px-3 font-semibold text-slate-900">Pulau Pecong (RW 03)</td>
+                                        <td class="py-3 px-3 text-center">198</td>
+                                        <td class="py-3 px-3 text-center">376</td>
+                                        <td class="py-3 px-3 text-center">352</td>
+                                        <td class="py-3 px-3 text-center font-bold text-teal-700">728</td>
+                                        <td class="py-3 px-3 text-center">74</td>
+                                        <td class="py-3 px-3 text-center">62</td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="py-3 px-3 font-semibold text-slate-900">Gugusan P. Teluk Bakau/Sekitar</td>
+                                        <td class="py-3 px-3 text-center">50</td>
+                                        <td class="py-3 px-3 text-center">92</td>
+                                        <td class="py-3 px-3 text-center">82</td>
+                                        <td class="py-3 px-3 text-center font-bold text-teal-700">174</td>
+                                        <td class="py-3 px-3 text-center">18</td>
+                                        <td class="py-3 px-3 text-center">15</td>
+                                    </tr>
+                                    <tr class="bg-teal-50/70 font-bold text-slate-900 border-t-2 border-teal-200">
+                                        <td class="py-3 px-3">TOTAL KELURAHAN KASU</td>
+                                        <td class="py-3 px-3 text-center">846</td>
+                                        <td class="py-3 px-3 text-center">1.616</td>
+                                        <td class="py-3 px-3 text-center">1.526</td>
+                                        <td class="py-3 px-3 text-center text-teal-800">3.142</td>
+                                        <td class="py-3 px-3 text-center">312</td>
+                                        <td class="py-3 px-3 text-center">294</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Socio-economic summary -->
+                        <div class="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                            <div class="p-3 rounded-xl bg-slate-50">
+                                <p class="font-bold text-slate-800 mb-1">Akses Air Bersih & Sanitasi</p>
+                                <p class="text-slate-600">64% menggunakan penampungan air hujan (PAH) & sumur gali dangkal; 36% membeli air galon/tangki dari Batam. Jamban sehat 74%.</p>
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-50">
+                                <p class="font-bold text-slate-800 mb-1">Kepesertaan Jaminan Kesehatan</p>
+                                <p class="text-slate-600">81% warga terdaftar JKN-KIS (mayoritas segmen PBI APBN/APBD), 19% belum aktif/kendala administrasi kependudukan.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chart Demografi Kelompok Umur & Mata Pencaharian -->
+                    <div class="lg:col-span-5 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+                        <div>
+                            <h4 class="font-bold text-slate-900 text-base mb-1">Struktur Kelompok Usia Penduduk</h4>
+                            <p class="text-xs text-slate-500 mb-4">Proporsi usia produktif dan kelompok rentan kesehatan</p>
+                            <div class="h-60 w-full">
+                                <canvas id="demografiChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900">
+                            <strong>Implikasi Keperawatan:</strong> Tingginya proporsi nelayan (68%) meningkatkan risiko penyakit akibat kerja maritim (barotrauma/dekompresi penyelam tradisional, dermatitis kontak air laut, hipertensi, dan cedera melaut).
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===================================================================== -->
+            <!-- TAB 3: DATA PEMANTAUAN MASALAH KESEHATAN (DATA SIMULASI ANONIM)       -->
+            <!-- ===================================================================== -->
+            <section id="tab-kesehatan" class="tab-section hidden space-y-6">
+                
+                <!-- Ethical Disclaimer Banner -->
+                <div class="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex items-start gap-3">
+                    <i class="fa-solid fa-user-shield text-amber-600 text-xl mt-0.5"></i>
+                    <div class="text-xs text-amber-950 space-y-1">
+                        <p class="font-bold">Ketentuan Etika Data & Anonimisasi (Sesuai Pedoman Akademik):</p>
+                        <p>Seluruh catatan kesehatan individu pada modul ini menggunakan <strong>data simulasi yang telah dianonimkan (kode ID pasien & inisial)</strong> untuk melindungi kerahasiaan medis warga. Pola distribusi kasus merujuk pada <em>Profil Kesehatan Kota Batam</em> dan laporan bulanan <em>Puskesmas Belakang Padang</em>.</p>
+                    </div>
+                </div>
+
+                <!-- Filter & Action Toolbar -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
+                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div>
+                            <h3 class="font-bold text-slate-900 text-base">Register Pemantauan Kesehatan Masyarakat (Kohort Komunitas)</h3>
+                            <p class="text-xs text-slate-500">Pemantauan PTM, Penyakit Menular, KIA, dan Gizi oleh Perawat Pustu Kasu</p>
+                        </div>
+                        <button onclick="toggleModalCase(true)" class="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-2 shadow-sm self-start transition">
+                            <i class="fa-solid fa-plus"></i> Tambah Data Pemantauan (Simulasi)
+                        </button>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Filter Wilayah Pulau</label>
+                            <select id="filter-pulau" onchange="renderCasesTable()" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500">
+                                <option value="ALL">Semua Pulau (Kelurahan Kasu)</option>
+                                <option value="Pulau Kasu Induk (RW 01)">Pulau Kasu Induk (RW 01)</option>
+                                <option value="Pulau Kasu Pesisir (RW 02)">Pulau Kasu Pesisir (RW 02)</option>
+                                <option value="Pulau Pecong (RW 03)">Pulau Pecong (RW 03)</option>
+                                <option value="Pulau Teluk Bakau">Pulau Teluk Bakau</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Filter Masalah Kesehatan</label>
+                            <select id="filter-diagnosis" onchange="renderCasesTable()" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500">
+                                <option value="ALL">Semua Diagnosis / Masalah</option>
+                                <option value="Hipertensi">Hipertensi (PTM)</option>
+                                <option value="ISPA">ISPA / Infeksi Saluran Napas</option>
+                                <option value="Ibu Hamil Risti">Ibu Hamil Risiko Tinggi (KIA)</option>
+                                <option value="Stunting / Gizi Kurang">Stunting / Gizi Kurang Balita</option>
+                                <option value="Diabetes Melitus">Diabetes Melitus Tipe 2</option>
+                                <option value="Dermatitis / Penyakit Kulit">Dermatitis Kontak Air Laut</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Cari ID Anonim / Inisial</label>
+                            <input type="text" id="filter-search" onkeyup="renderCasesTable()" placeholder="Contoh: KSU-001 atau Ny. S..." class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        </div>
+                    </div>
+
+                    <!-- Cases Table -->
+                    <div class="overflow-x-auto pt-2">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-700 border-b border-slate-200">
+                                    <th class="py-3 px-3 font-bold">ID Anonim</th>
+                                    <th class="py-3 px-3 font-bold">Inisial & Usia</th>
+                                    <th class="py-3 px-3 font-bold">Lokasi Pulau / RW</th>
+                                    <th class="py-3 px-3 font-bold">Masalah Kesehatan</th>
+                                    <th class="py-3 px-3 font-bold">Status Klinis</th>
+                                    <th class="py-3 px-3 font-bold">Rencana Keperawatan</th>
+                                    <th class="py-3 px-3 font-bold text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cases-table-body" class="divide-y divide-slate-100">
+                                <!-- Rendered dynamically via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Modal Tambah Kasus Simulasi -->
+                <div id="modal-add-case" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+                    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <h4 class="font-bold text-slate-900 text-base">Input Data Pemantauan Baru (Anonim)</h4>
+                            <button onclick="toggleModalCase(false)" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark text-lg"></i></button>
+                        </div>
+                        <form onsubmit="addNewCase(event)" class="space-y-3 text-xs">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="font-semibold text-slate-700 block mb-1">Inisial Pasien</label>
+                                    <input type="text" id="new-inisial" required placeholder="Misal: Tn. R" class="w-full rounded-xl border border-slate-300 px-3 py-2">
+                                </div>
+                                <div>
+                                    <label class="font-semibold text-slate-700 block mb-1">Usia</label>
+                                    <input type="text" id="new-usia" required placeholder="Misal: 54 Thn" class="w-full rounded-xl border border-slate-300 px-3 py-2">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="font-semibold text-slate-700 block mb-1">Lokasi Pulau / RW</label>
+                                <select id="new-pulau" class="w-full rounded-xl border border-slate-300 px-3 py-2">
+                                    <option value="Pulau Kasu Induk (RW 01)">Pulau Kasu Induk (RW 01)</option>
+                                    <option value="Pulau Kasu Pesisir (RW 02)">Pulau Kasu Pesisir (RW 02)</option>
+                                    <option value="Pulau Pecong (RW 03)">Pulau Pecong (RW 03)</option>
+                                    <option value="Pulau Teluk Bakau">Pulau Teluk Bakau</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="font-semibold text-slate-700 block mb-1">Masalah Kesehatan Utama</label>
+                                <select id="new-diagnosis" class="w-full rounded-xl border border-slate-300 px-3 py-2">
+                                    <option value="Hipertensi">Hipertensi</option>
+                                    <option value="ISPA">ISPA</option>
+                                    <option value="Ibu Hamil Risti">Ibu Hamil Risti</option>
+                                    <option value="Stunting / Gizi Kurang">Stunting / Gizi Kurang</option>
+                                    <option value="Diabetes Melitus">Diabetes Melitus</option>
+                                    <option value="Dermatitis / Penyakit Kulit">Dermatitis / Penyakit Kulit</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="font-semibold text-slate-700 block mb-1">Tingkat Risiko / Status</label>
+                                <select id="new-status" class="w-full rounded-xl border border-slate-300 px-3 py-2">
+                                    <option value="Pantau Rutin">Pantau Rutin (Hijau)</option>
+                                    <option value="Perlu Kunjungan Rumah">Perlu Kunjungan Rumah (Kuning)</option>
+                                    <option value="Siaga Rujukan">Siaga Rujukan (Merah)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="font-semibold text-slate-700 block mb-1">Rencana Intervensi Keperawatan</label>
+                                <input type="text" id="new-rencana" required placeholder="Contoh: Kontrol TD mingguan & diet rendah garam" class="w-full rounded-xl border border-slate-300 px-3 py-2">
+                            </div>
+                            <div class="pt-2 flex justify-end gap-2">
+                                <button type="button" onclick="toggleModalCase(false)" class="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-semibold">Batal</button>
+                                <button type="submit" class="px-4 py-2 rounded-xl bg-teal-600 text-white font-bold">Simpan ke Database</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===================================================================== -->
+            <!-- TAB 4: DATA FASILITAS PELAYANAN KESEHATAN                             -->
+            <!-- ===================================================================== -->
+            <section id="tab-faskes" class="tab-section hidden space-y-6">
+                
+                <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-2 pb-4 border-b border-slate-100">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900">Jejaring Fasilitas Pelayanan Kesehatan Wilayah Kerja Kasu</h3>
+                            <p class="text-xs text-slate-500">Dari pelayanan primer tingkat kelurahan hingga rumah sakit rujukan lanjutan di Pulau Batam</p>
+                        </div>
+                        <span class="text-xs bg-teal-50 text-teal-800 border border-teal-200 px-3 py-1.5 rounded-lg font-medium">
+                            Sumber: Kemenkes RI, Dinkes Kota Batam & Puskesmas Belakang Padang
+                        </span>
+                    </div>
+
+                    <!-- Cards Grid Faskes -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
+                        <!-- Faskes 1 -->
+                        <div class="rounded-2xl border border-teal-200 bg-teal-50/30 p-5 space-y-3">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <span class="px-2.5 py-0.5 rounded-full bg-teal-600 text-white text-[10px] font-bold uppercase">Garda Terdepan • Pulau Kasu</span>
+                                    <h4 class="text-base font-bold text-slate-900 mt-1.5">Pustu (Puskesmas Pembantu) Kasu</h4>
+                                    <p class="text-xs text-slate-500">Jl. Pelantar Utama, Pulau Kasu Induk (RW 01)</p>
+                                </div>
+                                <div class="w-10 h-10 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center text-lg">
+                                    <i class="fa-solid fa-house-medical-flag"></i>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-xs bg-white p-3 rounded-xl border border-teal-100">
+                                <div><span class="text-slate-400 block">Tenaga Kesehatan:</span><strong>1 Perawat, 1 Bidan Desa</strong></div>
+                                <div><span class="text-slate-400 block">Jam Layanan:</span><strong>08.00–14.00 (Siaga 24 Jam)</strong></div>
+                                <div><span class="text-slate-400 block">Akses Sandar:</span><strong>Tambatan Perahu ± 100 m</strong></div>
+                                <div><span class="text-slate-400 block">Kapasitas:</span><strong>Rawat Jalan & Stabilisasi</strong></div>
+                            </div>
+                            <p class="text-xs text-slate-600"><strong>Keterbatasan:</strong> Tidak memiliki dokter jaga tetap, laboratorium darah lengkap, maupun ruang rawat inap/persalinan penyulit.</p>
+                        </div>
+
+                        <!-- Faskes 2 -->
+                        <div class="rounded-2xl border border-slate-200 bg-white p-5 space-y-3">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <span class="px-2.5 py-0.5 rounded-full bg-sky-600 text-white text-[10px] font-bold uppercase">Pelayanan Berbasis Masyarakat</span>
+                                    <h4 class="text-base font-bold text-slate-900 mt-1.5">Poskesdes & 3 Posyandu Integrasi</h4>
+                                    <p class="text-xs text-slate-500">Posyandu Kasu I, Kasu II, dan Posyandu Pulau Pecong</p>
+                                </div>
+                                <div class="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center text-lg">
+                                    <i class="fa-solid fa-people-roof"></i>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                <div><span class="text-slate-400 block">SDM Pelaksana:</span><strong>15 Kader Aktif + Ners Pustu</strong></div>
+                                <div><span class="text-slate-400 block">Jadwal:</span><strong>1x / Bulan (Minggu ke-2)</strong></div>
+                                <div><span class="text-slate-400 block">Layanan Utama:</span><strong>KIA, Imunisasi, Posbindu PTM</strong></div>
+                                <div><span class="text-slate-400 block">Tantangan:</span><strong>Akses laut ke P. Pecong</strong></div>
+                            </div>
+                            <p class="text-xs text-slate-600"><strong>Peran Kunci:</strong> Deteksi dini stunting, pemantauan tekanan darah lansia, dan pendataan ibu hamil risiko tinggi di pulau satelit.</p>
+                        </div>
+
+                        <!-- Faskes 3 -->
+                        <div class="rounded-2xl border border-indigo-200 bg-indigo-50/30 p-5 space-y-3">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <span class="px-2.5 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] font-bold uppercase">Rujukan Tingkat Pertama (FKTP Induk)</span>
+                                    <h4 class="text-base font-bold text-slate-900 mt-1.5">Puskesmas Belakang Padang</h4>
+                                    <p class="text-xs text-slate-500">Pulau Belakang Padang (Pusat Kecamatan)</p>
+                                </div>
+                                <div class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-lg">
+                                    <i class="fa-solid fa-hospital-user"></i>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-xs bg-white p-3 rounded-xl border border-indigo-100">
+                                <div><span class="text-slate-400 block">Fasilitas:</span><strong>UGD 24 Jam, Rawat Inap, PONED</strong></div>
+                                <div><span class="text-slate-400 block">Armada Laut:</span><strong>1 Unit Ambulans Laut</strong></div>
+                                <div><span class="text-slate-400 block">Waktu dari Kasu:</span><strong>35–45 Menit (Pompong)</strong></div>
+                                <div><span class="text-slate-400 block">Penunjang:</span><strong>Lab Sederhana & USG Dasar</strong></div>
+                            </div>
+                            <p class="text-xs text-slate-600"><strong>Fungsi:</strong> Pusat koordinasi Puskesmas Keliling (Puskel) laut dan transit stabilisasi pasien sebelum dirujuk ke Pulau Batam.</p>
+                        </div>
+
+                        <!-- Faskes 4 -->
+                        <div class="rounded-2xl border border-rose-200 bg-rose-50/30 p-5 space-y-3">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <span class="px-2.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold uppercase">Rujukan Lanjutan (FKRTL • Pulau Batam)</span>
+                                    <h4 class="text-base font-bold text-slate-900 mt-1.5">RSBP Batam & RSUD Embung Fatimah</h4>
+                                    <p class="text-xs text-slate-500">Sekupang (RSBP) & Batu Aji (RSUD Kota Batam)</p>
+                                </div>
+                                <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center text-lg">
+                                    <i class="fa-solid fa-truck-medical"></i>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-xs bg-white p-3 rounded-xl border border-rose-100">
+                                <div><span class="text-slate-400 block">Akses Pelabuhan:</span><strong>Pelabuhan Domestik Sekupang</strong></div>
+                                <div><span class="text-slate-400 block">Waktu Laut Kasu-Skp:</span><strong>45–60 Menit (Speedboat/Charter)</strong></div>
+                                <div><span class="text-slate-400 block">Layanan:</span><strong>Spesialis, ICU, Bedah, NICU</strong></div>
+                                <div><span class="text-slate-400 block">Pembiayaan:</span><strong>BPJS Kesehatan / Jamkesda</strong></div>
+                            </div>
+                            <p class="text-xs text-slate-600"><strong>Catatan Logistik:</strong> Membutuhkan transfer multimoda (Transportasi Laut ke Pelabuhan Sekupang + Ambulans Darat ke RS).</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===================================================================== -->
+            <!-- TAB 5: DATA TRANSPORTASI LAUT DAN DARAT                               -->
+            <!-- ===================================================================== -->
+            <section id="tab-transportasi" class="tab-section hidden space-y-6">
+                
+                <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-5">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-2 pb-4 border-b border-slate-100">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900">Inventaris Moda Transportasi Laut & Darat Kepulauan Kasu</h3>
+                            <p class="text-xs text-slate-500">Jadwal keberangkatan, tarif reguler/charter, kapasitas, dan prosedur aktivasi ambulans laut</p>
+                        </div>
+                        <span class="text-xs bg-sky-50 text-sky-800 border border-sky-200 px-3 py-1.5 rounded-lg font-medium">
+                            Sumber: Dishub Kota Batam, Pengelola Tambatan Perahu Kasu & Wawancara Operator Pompong
+                        </span>
+                    </div>
+
+                    <!-- Transportasi Laut Table -->
+                    <div>
+                        <h4 class="font-bold text-sm text-maritime-900 mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-ship text-sky-600"></i> A. Transportasi Laut (Penghubung Antar-Pulau & ke Batam)
+                        </h4>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-maritime-900 text-white">
+                                        <th class="py-3 px-3 rounded-tl-xl">Moda Transportasi</th>
+                                        <th class="py-3 px-3">Rute Layanan</th>
+                                        <th class="py-3 px-3">Jadwal Operasional</th>
+                                        <th class="py-3 px-3">Estimasi Durasi</th>
+                                        <th class="py-3 px-3">Tarif / Biaya</th>
+                                        <th class="py-3 px-3 rounded-tr-xl">Kapasitas & Catatan</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200 border border-slate-200">
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="py-3 px-3 font-bold text-slate-900">Pompong Reguler Warga</td>
+                                        <td class="py-3 px-3">Dermaga Kasu &harr; Pelabuhan Belakang Padang</td>
+                                        <td class="py-3 px-3">07.00 & 13.00 WIB (1–2x/hari)</td>
+                                        <td class="py-3 px-3">35–45 Menit</td>
+                                        <td class="py-3 px-3 font-semibold text-teal-700">Rp 25.000 – Rp 30.000 / org</td>
+                                        <td class="py-3 px-3">12–15 penumpang; tidak beroperasi jika gelombang &gt;1,5 m</td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="py-3 px-3 font-bold text-slate-900">Pompong Antarpulau</td>
+                                        <td class="py-3 px-3">Pulau Pecong &harr; Pulau Kasu Induk</td>
+                                        <td class="py-3 px-3">07.30 WIB & On-Call</td>
+                                        <td class="py-3 px-3">15–20 Menit</td>
+                                        <td class="py-3 px-3 font-semibold text-teal-700">Rp 15.000 / org (Charter Rp 100rb)</td>
+                                        <td class="py-3 px-3">8–10 penumpang; perahu kayu bermesin tempel/dompeng</td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="py-3 px-3 font-bold text-slate-900">Boat Pancung Charter (Speed)</td>
+                                        <td class="py-3 px-3">Pulau Kasu &rarr; Pelabuhan Sekupang (Batam)</td>
+                                        <td class="py-3 px-3">24 Jam (Charter Darurat/Pribadi)</td>
+                                        <td class="py-3 px-3">45–60 Menit</td>
+                                        <td class="py-3 px-3 font-semibold text-amber-700">Rp 450.000 – Rp 600.000 / trip</td>
+                                        <td class="py-3 px-3">Mesin 40–85 PK; beban biaya tinggi bagi nelayan non-BPJS</td>
+                                    </tr>
+                                    <tr class="bg-rose-50/60 hover:bg-rose-50">
+                                        <td class="py-3 px-3 font-bold text-rose-800 flex items-center gap-1.5"><i class="fa-solid fa-kit-medical"></i> Ambulans Laut Puskesmas</td>
+                                        <td class="py-3 px-3 font-medium">Belakang Padang &harr; Kasu &rarr; Sekupang</td>
+                                        <td class="py-3 px-3 font-bold text-rose-700">Siaga 24 Jam (Via Koordinasi Pustu)</td>
+                                        <td class="py-3 px-3">30–45 Menit (Respons + Jarak)</td>
+                                        <td class="py-3 px-3 font-bold text-emerald-700">Gratis (JKN-KIS / Program Dinkes)</td>
+                                        <td class="py-3 px-3">Dilengkapi brankar, oksigen, dan perawat pendamping; perlu waktu jemput dari Blk. Padang (±30 mnt)</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Transportasi Darat Cards -->
+                    <div class="pt-2">
+                        <h4 class="font-bold text-sm text-maritime-900 mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-motorcycle text-teal-600"></i> B. Transportasi Darat & Lanjutan (Pelabuhan ke Faskes)
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                                <span class="font-bold text-slate-900 block">1. Jalan Pelantar & Sepeda Motor (Pulau Kasu)</span>
+                                <p class="text-slate-600">Akses internal pulau berupa jalan semen/pelantar selebar 1,5–2 meter. Pasien dari rumah ke dermaga diangkut menggunakan motor warga atau tandu lipat (5–10 menit).</p>
+                            </div>
+                            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                                <span class="font-bold text-slate-900 block">2. Becak Motor / Ambulans Darat (Belakang Padang)</span>
+                                <p class="text-slate-600">Dari Pelabuhan Belakang Padang menuju Puskesmas Belakang Padang (± 1,2 km / 5 menit). Tersedia ambulans puskesmas dan becak motor khas pulau (Rp 10.000).</p>
+                            </div>
+                            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                                <span class="font-bold text-slate-900 block">3. Ambulans Darat PSC 119 / RS (Sekupang - Batam)</span>
+                                <p class="text-slate-600">Dari Pelabuhan Sekupang ke RSBP Batam (± 3 km / 8 menit) atau ke RSUD Embung Fatimah Batu Aji (± 14 km / 25 menit) via jalur darat beraspal.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===================================================================== -->
+            <!-- TAB 6: PEMETAAN JARAK DAN WAKTU TEMPUH (INTERAKTIF LEAFLET.JS)        -->
+            <!-- ===================================================================== -->
+            <section id="tab-peta-jarak" class="tab-section hidden space-y-6">
+                
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <!-- Interactive Route Simulator Panel -->
+                    <div class="lg:col-span-4 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
+                        <div>
+                            <span class="text-[11px] font-bold text-sky-700 uppercase tracking-wider">Simulasi Spasial & Waktu Tempuh</span>
+                            <h3 class="font-bold text-slate-900 text-base mt-0.5">Kalkulator Rute Maritim</h3>
+                            <p class="text-xs text-slate-500">Hitung jarak laut, durasi pelayaran berdasarkan kondisi gelombang BMKG, dan estimasi biaya.</p>
+                        </div>
+
+                        <div class="space-y-3 text-xs">
+                            <div>
+                                <label class="font-semibold text-slate-700 block mb-1">Pilih Rute Pelayaran</label>
+                                <select id="route-selector" onchange="updateMaritimeRoute()" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 bg-slate-50 font-medium text-slate-800 focus:ring-2 focus:ring-teal-500">
+                                    <option value="kasu-blkpadang">Pulau Kasu &rarr; Puskesmas Belakang Padang</option>
+                                    <option value="pecong-kasu">Pulau Pecong &rarr; Pustu Pulau Kasu</option>
+                                    <option value="kasu-sekupang">Pulau Kasu &rarr; Pelabuhan Sekupang (Batam)</option>
+                                    <option value="sekupang-rsud">Sekupang &rarr; RSUD Embung Fatimah (Darat)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="font-semibold text-slate-700 block mb-1">Kondisi Cuaca / Gelombang Laut (BMKG)</label>
+                                <select id="weather-selector" onchange="updateMaritimeRoute()" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 bg-slate-50 font-medium text-slate-800 focus:ring-2 focus:ring-teal-500">
+                                    <option value="normal">Normal / Teduh (Gelombang 0.3 – 0.8 m)</option>
+                                    <option value="waspada">Angin Kencang / Waspada (Gelombang 1.2 – 1.8 m)</option>
+                                    <option value="ekstrem">Gelombang Tinggi / Musim Utara (&gt; 2.0 m)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Result Output Box -->
+                        <div id="route-result-box" class="p-4 rounded-xl bg-maritime-900 text-white space-y-3">
+                            <div class="flex items-center justify-between border-b border-white/15 pb-2">
+                                <span class="text-xs text-teal-300 font-semibold">Hasil Estimasi Rute</span>
+                                <span id="res-status-badge" class="px-2 py-0.5 rounded bg-emerald-500 text-maritime-950 font-bold text-[10px]">AMAN MELAYAR</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <p class="text-[11px] text-slate-300">Jarak Tempuh</p>
+                                    <p id="res-distance" class="text-lg font-extrabold text-white">11,5 km <span class="text-xs font-normal text-slate-300">(6,2 NM)</span></p>
+                                </div>
+                                <div>
+                                    <p class="text-[11px] text-slate-300">Estimasi Waktu</p>
+                                    <p id="res-duration" class="text-lg font-extrabold text-amber-400">40 Menit</p>
+                                </div>
+                            </div>
+                            <div class="text-xs space-y-1 pt-1 border-t border-white/15">
+                                <p><span class="text-slate-300">Moda Disarankan:</span> <strong id="res-mode" class="text-white">Pompong Reguler / Ambulans Laut</strong></p>
+                                <p><span class="text-slate-300">Estimasi Biaya:</span> <strong id="res-cost" class="text-teal-300">Rp 25.000 (Reguler) / Gratis (BPJS)</strong></p>
+                            </div>
+                        </div>
+
+                        <div class="text-[11px] text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                            <strong>Metode Pengumpulan Data:</strong> Pengukuran koordinat GPS/GIS (BIG & OpenStreetMap) dikombinasikan dengan pencatatan waktu tempuh lapangan operator pompong Kasu.
+                        </div>
+                    </div>
+
+                    <!-- Interactive Leaflet Map Container -->
+                    <div class="lg:col-span-8 bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col">
+                        <div class="flex items-center justify-between mb-3 px-1">
+                            <div>
+                                <h4 class="font-bold text-slate-900 text-sm">Peta Digital Wilayah Kajian Kepulauan Kasu – Belakang Padang – Batam</h4>
+                                <p class="text-[11px] text-slate-500">Klik penanda (marker) untuk melihat detail koordinat, fasilitas, dan konektivitas</p>
+                            </div>
+                            <button onclick="resetMapView()" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700">
+                                <i class="fa-solid fa-crosshairs mr-1"></i> Pusat Pulau Kasu
+                            </button>
+                        </div>
+                        <div id="map-jarak" class="w-full h-[430px] rounded-xl border border-slate-200"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===================================================================== -->
+            <!-- TAB 7: PEMETAAN DISTRIBUSI MASALAH KESEHATAN                          -->
+            <!-- ===================================================================== -->
+            <section id="tab-peta-penyakit" class="tab-section hidden space-y-6">
+                
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div>
+                            <h3 class="font-bold text-slate-900 text-base">Peta Tematik Sebaran & Klaster Masalah Kesehatan Kepulauan Kasu</h3>
+                            <p class="text-xs text-slate-500">Visualisasi spasial beban kasus (proporsional lingkaran) dan area blankspot sinyal di gugusan pulau</p>
+                        </div>
+                        <!-- Layer Filter Buttons -->
+                        <div class="flex flex-wrap gap-2 text-xs">
+                            <button onclick="setDiseaseLayer('ALL')" id="btn-layer-ALL" class="disease-layer-btn px-3 py-1.5 rounded-xl bg-teal-600 text-white font-semibold">Semua Kasus</button>
+                            <button onclick="setDiseaseLayer('HT')" id="btn-layer-HT" class="disease-layer-btn px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200">Hipertensi (62)</button>
+                            <button onclick="setDiseaseLayer('ISPA')" id="btn-layer-ISPA" class="disease-layer-btn px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200">ISPA (44)</button>
+                            <button onclick="setDiseaseLayer('KIA')" id="btn-layer-KIA" class="disease-layer-btn px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200">Bumil Risti & Stunting (30)</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                        <div class="lg:col-span-8">
+                            <div id="map-penyakit" class="w-full h-[420px] rounded-xl border border-slate-200"></div>
+                        </div>
+
+                        <div class="lg:col-span-4 space-y-3">
+                            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+                                <h4 class="font-bold text-sm text-slate-900">Analisis Spasial Epidemiologi Pulau</h4>
+                                <div class="space-y-2 text-xs">
+                                    <div class="p-3 bg-white rounded-lg border border-slate-200">
+                                        <div class="flex justify-between font-bold text-rose-700">
+                                            <span>1. Pulau Kasu Induk (RW 01)</span>
+                                            <span>64 Kasus</span>
+                                        </div>
+                                        <p class="text-slate-600 mt-1">Konsentrasi tertinggi <strong>Hipertensi (28 kasus)</strong> pada lansia & nelayan. Dekat dengan Pustu Kasu sehingga deteksi kasus lebih optimal.</p>
+                                    </div>
+                                    <div class="p-3 bg-white rounded-lg border border-slate-200">
+                                        <div class="flex justify-between font-bold text-amber-700">
+                                            <span>2. Pulau Kasu Pesisir (RW 02)</span>
+                                            <span>43 Kasus</span>
+                                        </div>
+                                        <p class="text-slate-600 mt-1">Dominasi <strong>ISPA (18 kasus)</strong> dan <strong>Dermatitis kontak</strong> akibat kelembapan rumah panggung pesisir serta paparan angin laut.</p>
+                                    </div>
+                                    <div class="p-3 bg-white rounded-lg border border-slate-200">
+                                        <div class="flex justify-between font-bold text-indigo-700">
+                                            <span>3. Pulau Pecong (RW 03)</span>
+                                            <span>32 Kasus</span>
+                                        </div>
+                                        <p class="text-slate-600 mt-1">Klaster kerentanan <strong>Ibu Hamil Risti (6) & Risiko Stunting (8)</strong>. Terpisah selat dari Pustu Kasu dan sinyal seluler sering melemah.</p>
+                                    </div>
+                                    <div class="p-3 bg-white rounded-lg border border-slate-200">
+                                        <div class="flex justify-between font-bold text-slate-700">
+                                            <span>4. Pulau Teluk Bakau</span>
+                                            <span>9 Kasus</span>
+                                        </div>
+                                        <p class="text-slate-600 mt-1">Populasi kecil dengan risiko <em>under-reporting</em> akibat keterbatasan perahu pribadi menuju Pustu.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===================================================================== -->
+            <!-- TAB 8: INFORMASI & ANALISIS AKSESIBILITAS PELAYANAN KESEHATAN         -->
+            <!-- ===================================================================== -->
+            <section id="tab-aksesibilitas" class="tab-section hidden space-y-6">
+                
+                <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-5">
+                    <div>
+                        <span class="text-xs font-bold text-teal-700 uppercase tracking-wider">Luaran Proyek: Analisis Aksesibilitas Layanan Kesehatan</span>
+                        <h3 class="text-lg font-bold text-slate-900 mt-0.5">Indeks Aksesibilitas Multi-Dimensi Masyarakat Kepulauan Kasu</h3>
+                        <p class="text-xs text-slate-500">Evaluasi hambatan geografis, finansial transportasi, cuaca maritim (BMKG), dan konektivitas digital (Kominfo)</p>
+                    </div>
+
+                    <!-- 4 Dimension Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                        <div class="p-4 rounded-xl bg-sky-50 border border-sky-200 space-y-1.5">
+                            <div class="flex items-center justify-between font-bold text-sky-900">
+                                <span>1. Jarak & Waktu Tempuh</span>
+                                <span class="px-2 py-0.5 rounded bg-amber-200 text-amber-900">Skor: 62/100</span>
+                            </div>
+                            <p class="text-slate-600">Layanan primer dasar tersedia di P. Kasu, namun rujukan dokter/persalinan penyulit butuh 40–60 menit menyeberangi laut.</p>
+                        </div>
+
+                        <div class="p-4 rounded-xl bg-amber-50 border border-amber-200 space-y-1.5">
+                            <div class="flex items-center justify-between font-bold text-amber-900">
+                                <span>2. Biaya & Jadwal Transport</span>
+                                <span class="px-2 py-0.5 rounded bg-rose-200 text-rose-900">Skor: 54/100</span>
+                            </div>
+                            <p class="text-slate-600">Pompong reguler hanya 1–2x/hari. Darurat malam hari memaksa warga menyewa boat charter Rp 450rb–600rb jika ambulans laut belum tiba.</p>
+                        </div>
+
+                        <div class="p-4 rounded-xl bg-indigo-50 border border-indigo-200 space-y-1.5">
+                            <div class="flex items-center justify-between font-bold text-indigo-900">
+                                <span>3. Faktor Cuaca (BMKG)</span>
+                                <span class="px-2 py-0.5 rounded bg-amber-200 text-amber-900">Skor: 65/100</span>
+                            </div>
+                            <p class="text-slate-600">Pada musim angin utara (Des–Feb) dan selatan (Jun–Ags), gelombang tinggi menunda kunjungan posyandu dan rujukan non-gawat.</p>
+                        </div>
+
+                        <div class="p-4 rounded-xl bg-teal-50 border border-teal-200 space-y-1.5">
+                            <div class="flex items-center justify-between font-bold text-teal-900">
+                                <span>4. Jaringan & Telehealth</span>
+                                <span class="px-2 py-0.5 rounded bg-emerald-200 text-emerald-900">Skor: 70/100</span>
+                            </div>
+                            <p class="text-slate-600">Pulau Kasu Induk terjangkau 4G untuk konsultasi WhatsApp/telemedicine ke dokter Puskesmas, namun P. Pecong dan pesisir selatan mengalami blankspot.</p>
+                        </div>
+                    </div>
+
+                    <!-- Comparison Matrix & Chart -->
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
+                        <div class="lg:col-span-7 overflow-x-auto">
+                            <h4 class="font-bold text-sm text-slate-900 mb-3">Matriks Perbandingan Aksesibilitas per Pulau</h4>
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-slate-100 text-slate-700 border-b border-slate-200">
+                                        <th class="py-2.5 px-3 font-bold">Wilayah Pulau</th>
+                                        <th class="py-2.5 px-3 font-bold">Waktu ke Pustu</th>
+                                        <th class="py-2.5 px-3 font-bold">Waktu ke Puskesmas</th>
+                                        <th class="py-2.5 px-3 font-bold">Sinyal Internet</th>
+                                        <th class="py-2.5 px-3 font-bold">Kategori Akses</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    <tr>
+                                        <td class="py-3 px-3 font-bold">Pulau Kasu Induk (RW 01)</td>
+                                        <td class="py-3 px-3">5–10 mnt (Jalan kaki)</td>
+                                        <td class="py-3 px-3">35–45 mnt (Laut)</td>
+                                        <td class="py-3 px-3 text-emerald-600 font-semibold">4G Baik</td>
+                                        <td class="py-3 px-3"><span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">Akses Sedang-Baik</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-3 px-3 font-bold">Pulau Kasu Pesisir (RW 02)</td>
+                                        <td class="py-3 px-3">10–15 mnt (Pelantar/Sampan)</td>
+                                        <td class="py-3 px-3">40–50 mnt (Laut)</td>
+                                        <td class="py-3 px-3 text-emerald-600 font-semibold">4G Cukup</td>
+                                        <td class="py-3 px-3"><span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">Akses Sedang</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-3 px-3 font-bold">Pulau Pecong (RW 03)</td>
+                                        <td class="py-3 px-3">15–20 mnt (Pompong)</td>
+                                        <td class="py-3 px-3">50–60 mnt (Laut)</td>
+                                        <td class="py-3 px-3 text-amber-600 font-semibold">4G Lemah</td>
+                                        <td class="py-3 px-3"><span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold">Akses Terbatas</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-3 px-3 font-bold">Pulau Teluk Bakau</td>
+                                        <td class="py-3 px-3">25–30 mnt (Perahu)</td>
+                                        <td class="py-3 px-3">60–75 mnt (Laut)</td>
+                                        <td class="py-3 px-3 text-rose-600 font-semibold">Blankspot</td>
+                                        <td class="py-3 px-3"><span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 font-bold">Sangat Terbatas</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="lg:col-span-5 bg-slate-50 rounded-xl p-4 border border-slate-200">
+                            <h4 class="font-bold text-sm text-slate-900 mb-2">Skor Indeks Aksesibilitas (0–100)</h4>
+                            <div class="h-52 w-full">
+                                <canvas id="aksesibilitasChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===================================================================== -->
+            <!-- TAB 9: SISTEM INFORMASI RUJUKAN KEPULAUAN                             -->
+            <!-- ===================================================================== -->
+            <section id="tab-rujukan" class="tab-section hidden space-y-6">
+                
+                <!-- Alur Rujukan Berjenjang Banner -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+                    <h3 class="font-bold text-slate-900 text-base mb-3">Alur Sistem Rujukan Berjenjang Masyarakat Kepulauan Kasu</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+                        <div class="p-3.5 rounded-xl bg-teal-50 border border-teal-200 relative">
+                            <span class="font-bold text-teal-800 block">1. Deteksi & Stabilisasi Awal</span>
+                            <p class="text-slate-600 mt-1">Kader/Keluarga melapor ke Perawat/Bidan <strong>Pustu Kasu</strong>. Triase ABCDE, pemasangan infus/oksigen portabel, dan format SBAR.</p>
+                        </div>
+                        <div class="p-3.5 rounded-xl bg-sky-50 border border-sky-200">
+                            <span class="font-bold text-sky-800 block">2. Aktivasi Moda Laut & Cuaca</span>
+                            <p class="text-slate-600 mt-1">Cek gelombang BMKG. Hubungi <strong>Ambulans Laut Puskesmas Belakang Padang</strong> atau operator pompong charter siaga desa.</p>
+                        </div>
+                        <div class="p-3.5 rounded-xl bg-indigo-50 border border-indigo-200">
+                            <span class="font-bold text-indigo-800 block">3. Rujukan FKTP (Belakang Padang)</span>
+                            <p class="text-slate-600 mt-1">Pasien kuning/obstetri dasar ditangani di <strong>UGD/PONED Puskesmas Belakang Padang</strong> (35–45 menit dari Kasu).</p>
+                        </div>
+                        <div class="p-3.5 rounded-xl bg-rose-50 border border-rose-200">
+                            <span class="font-bold text-rose-800 block">4. Rujukan FKRTL (Pulau Batam)</span>
+                            <p class="text-slate-600 mt-1">Kasus gawat darurat merah langsung menyeberang ke <strong>Pelabuhan Sekupang</strong> &rarr; Ambulans Darat ke <strong>RSBP / RSUD Batam</strong>.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Interactive Referral Decision Support Simulator -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div class="lg:col-span-5 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
+                        <div class="border-b border-slate-100 pb-3">
+                            <span class="text-[11px] font-bold text-rose-600 uppercase tracking-wider">Clinical Decision Support</span>
+                            <h4 class="font-bold text-slate-900 text-base">Simulator Keputusan Rujukan Maritim</h4>
+                        </div>
+
+                        <div class="space-y-3 text-xs">
+                            <div>
+                                <label class="font-semibold text-slate-700 block mb-1">Pulau Asal Pasien</label>
+                                <select id="ref-origin" onchange="calculateReferral()" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 bg-slate-50 font-medium">
+                                    <option value="Pulau Kasu Induk">Pulau Kasu Induk (Dermaga Utama)</option>
+                                    <option value="Pulau Pecong">Pulau Pecong (RW 03)</option>
+                                    <option value="Pulau Teluk Bakau">Pulau Teluk Bakau</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="font-semibold text-slate-700 block mb-1">Kategori Triase Kegawatdaruratan</label>
+                                <select id="ref-triage" onchange="calculateReferral()" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 bg-slate-50 font-medium">
+                                    <option value="MERAH">MERAH — Gawat Darurat (Syok, Preeklamsia Berat, Sesak Berat, Trauma Melaut)</option>
+                                    <option value="KUNING">KUNING — Mendesak (Persalinan Kala I, Demam Tinggi, Hipertensi Urgensi)</option>
+                                    <option value="HIJAU">HIJAU — Rujukan Terencana / Kontrol Poli Spesialis</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="font-semibold text-slate-700 block mb-1">Kondisi Gelombang Laut Saat Ini</label>
+                                <select id="ref-weather" onchange="calculateReferral()" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 bg-slate-50 font-medium">
+                                    <option value="AMAN">Aman (Gelombang &lt; 1.0 m)</option>
+                                    <option value="WASPADA">Waspada (Gelombang 1.0 – 1.8 m)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button onclick="triggerReferralDispatch()" class="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md flex items-center justify-center gap-2 transition">
+                            <i class="fa-solid fa-paper-plane"></i> Kirim Notifikasi SBAR ke Puskesmas / PSC 119
+                        </button>
+                    </div>
+
+                    <!-- Referral Output Plan -->
+                    <div class="lg:col-span-7 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <h4 class="font-bold text-slate-900 text-base">Rekomendasi Protokol Evakuasi & Rujukan</h4>
+                            <span id="ref-badge" class="px-3 py-1 rounded-full bg-rose-600 text-white text-xs font-bold">TRIASE MERAH</span>
+                        </div>
+
+                        <div id="ref-output-card" class="space-y-4 text-xs">
+                            <!-- Filled dynamically by JS -->
+                        </div>
+
+                        <!-- Emergency Contacts -->
+                        <div class="pt-3 border-t border-slate-100">
+                            <p class="font-bold text-slate-800 text-xs mb-2">Kontak Siaga Rujukan Kepulauan (Simulasi Direktori):</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+                                <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+                                    <span class="text-slate-500 block">Ambulans Laut Blk. Padang</span>
+                                    <strong class="text-slate-900">0778-321-XXX (24 Jam)</strong>
+                                </div>
+                                <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+                                    <span class="text-slate-500 block">PSC 119 Dinkes Batam</span>
+                                    <strong class="text-slate-900">119 / 0811-777-XXXX</strong>
+                                </div>
+                                <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+                                    <span class="text-slate-500 block">Koordinator Boat Siaga Kasu</span>
+                                    <strong class="text-slate-900">0812-68XX-XXXX (Pak H.)</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===================================================================== -->
+            <!-- TAB 10: LAPORAN, VISUALISASI ARSITEKTUR (ERD/FLOWCHART) & PERAN NERS  -->
+            <!-- ===================================================================== -->
+            <section id="tab-laporan" class="tab-section hidden space-y-6">
+                
+                <!-- Action Bar: Export & Print -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h3 class="font-bold text-slate-900 text-base">Laporan Proyek, Desain Sistem & Panduan Keperawatan Komunitas</h3>
+                        <p class="text-xs text-slate-500">Dokumentasi luaran akademik: Ekspor data, Flowchart alur sistem, Desain Database (ERD), dan Sumber Data</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 no-print">
+                        <button onclick="exportCasesCSV()" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition">
+                            <i class="fa-solid fa-file-csv"></i> Unduh CSV Kasus
+                        </button>
+                        <button onclick="window.print()" class="px-3.5 py-2 rounded-xl bg-maritime-900 hover:bg-maritime-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition">
+                            <i class="fa-solid fa-print"></i> Cetak Laporan (PDF)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 1. Peran Perawat Komunitas dalam Perencanaan Pelayanan Kepulauan -->
+                <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+                    <h4 class="font-bold text-slate-900 text-base flex items-center gap-2">
+                        <i class="fa-solid fa-user-nurse text-teal-600 text-lg"></i>
+                        <span>A. Pemanfaatan SIMKES-KASU oleh Perawat dalam Perencanaan Pelayanan Kesehatan Kepulauan</span>
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                        <div class="p-4 rounded-xl bg-teal-50/60 border border-teal-200 space-y-1.5">
+                            <span class="font-bold text-teal-900 block">1. Perencanaan Home Visit & Puskel</span>
+                            <p class="text-slate-700">Perawat memprioritaskan kunjungan rumah (<em>home care</em>) ke Pulau Pecong dan RW pesisir dengan memadukan peta sebaran kasus risiko tinggi dan prakiraan gelombang BMKG.</p>
+                        </div>
+                        <div class="p-4 rounded-xl bg-sky-50/60 border border-sky-200 space-y-1.5">
+                            <span class="font-bold text-sky-900 block">2. Manajemen Logistik Obat & Alkes</span>
+                            <p class="text-slate-700">Data tren Hipertensi dan ISPA membantu perawat menghitung kebutuhan buffer stok obat di Pustu Kasu menjelang musim angin utara saat distribusi obat laut terhambat.</p>
+                        </div>
+                        <div class="p-4 rounded-xl bg-rose-50/60 border border-rose-200 space-y-1.5">
+                            <span class="font-bold text-rose-900 block">3. Rujukan Terencana (Prev. Delay)</span>
+                            <p class="text-slate-700">Mencegah <em>3 Terlambat</em> pada ibu hamil risiko tinggi melalui pemantauan HPL dan evakuasi dini ke Belakang Padang sebelum gelombang pasang.</p>
+                        </div>
+                        <div class="p-4 rounded-xl bg-amber-50/60 border border-amber-200 space-y-1.5">
+                            <span class="font-bold text-amber-900 block">4. Edukasi & Pemberdayaan Kader</span>
+                            <p class="text-slate-700">Menyusun materi penyuluhan spesifik (keselamatan kerja nelayan, sanitasi air hujan, diet rendah garam) bersama kader Posyandu di setiap pulau.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Flowchart & Desain Database (ERD) -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Flowchart Sistem -->
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
+                        <h4 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-diagram-project text-indigo-600"></i> B. Flowchart Alur Kerja Sistem Informasi
+                        </h4>
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col items-center space-y-2 text-xs">
+                            <div class="px-4 py-2 rounded-full bg-maritime-900 text-white font-bold">MULAI (Input Data Surveilans & Lingkungan)</div>
+                            <i class="fa-solid fa-arrow-down text-slate-400"></i>
+                            <div class="w-full p-2.5 rounded-xl bg-white border border-slate-300 text-center font-medium">
+                                Input Data Demografi (BPS), Kasus Anonim (Pustu), Cuaca (BMKG), Sinyal (Kominfo)
+                            </div>
+                            <i class="fa-solid fa-arrow-down text-slate-400"></i>
+                            <div class="w-full p-2.5 rounded-xl bg-teal-50 border border-teal-300 text-center font-semibold text-teal-900">
+                                Pemrosesan Spasial GIS & Kalkulasi Indeks Aksesibilitas Pulau
+                            </div>
+                            <i class="fa-solid fa-arrow-down text-slate-400"></i>
+                            <div class="w-full p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-center font-semibold text-amber-900">
+                                Evaluasi Triase: Apakah Kasus Gawat Darurat / Cuaca Ekstrem?
+                            </div>
+                            <div class="grid grid-cols-2 gap-3 w-full pt-1">
+                                <div class="p-2.5 rounded-xl bg-rose-50 border border-rose-300 text-center">
+                                    <span class="font-bold text-rose-700 block">YA (Darurat)</span>
+                                    <span>Aktivasi Ambulans Laut & SBAR Rujukan</span>
+                                </div>
+                                <div class="p-2.5 rounded-xl bg-sky-50 border border-sky-300 text-center">
+                                    <span class="font-bold text-sky-700 block">TIDAK (Rutin)</span>
+                                    <span>Jadwal Home Visit Ners & Posyandu Pulau</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Desain Database (ERD) -->
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
+                        <h4 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-database text-teal-600"></i> C. Desain Relasi Database (ERD SIMKES-KASU)
+                        </h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px]">
+                            <div class="p-3 rounded-xl bg-slate-50 border border-slate-300">
+                                <div class="font-bold text-maritime-900 border-b border-slate-200 pb-1 mb-1">1. tb_wilayah_pulau</div>
+                                <p class="font-mono text-slate-600">PK id_pulau, nama_pulau, rw, lat, lng, jml_penduduk, skor_sinyal</p>
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-50 border border-slate-300">
+                                <div class="font-bold text-maritime-900 border-b border-slate-200 pb-1 mb-1">2. tb_pemantauan_kesehatan</div>
+                                <p class="font-mono text-slate-600">PK id_kasus_anonim, FK id_pulau, inisial, usia, diagnosis, status_klinis</p>
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-50 border border-slate-300">
+                                <div class="font-bold text-maritime-900 border-b border-slate-200 pb-1 mb-1">3. tb_faskes</div>
+                                <p class="font-mono text-slate-600">PK id_faskes, nama_faskes, tingkat, nakes, jam_buka, lat, lng</p>
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-50 border border-slate-300">
+                                <div class="font-bold text-maritime-900 border-b border-slate-200 pb-1 mb-1">4. tb_transportasi_rujukan</div>
+                                <p class="font-mono text-slate-600">PK id_moda, jenis_kapal, rute, durasi_normal, tarif, status_bmkg</p>
+                            </div>
+                        </div>
+                        <div class="p-3 rounded-xl bg-teal-50 border border-teal-200 text-xs text-teal-950">
+                            <strong>Panduan Penggunaan Singkat:</strong> Gunakan menu sidebar kiri (Modul 1–10) untuk mendemonstrasikan profil wilayah, memfilter data pasien anonim, menyimulasikan rute pelayaran pada peta interaktif, dan menguji protokol keputusan rujukan darurat.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Matriks Sumber Data (Ketentuan E) -->
+                <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-3">
+                    <h4 class="font-bold text-slate-900 text-base">D. Matriks Verifikasi Sumber Data & Metode Pengumpulan Data</h4>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-700 border-b border-slate-200">
+                                    <th class="py-2.5 px-3 font-bold">Jenis Data</th>
+                                    <th class="py-2.5 px-3 font-bold">Sumber Resmi / Rujukan</th>
+                                    <th class="py-2.5 px-3 font-bold">Metode & Keterangan Verifikasi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <tr>
+                                    <td class="py-2.5 px-3 font-semibold">Data Kependudukan</td>
+                                    <td class="py-2.5 px-3">BPS Kota Batam & Kantor Kelurahan Kasu</td>
+                                    <td class="py-2.5 px-3">Telaah dokumen <em>Kecamatan Belakang Padang dalam Angka</em> & profil kelurahan.</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2.5 px-3 font-semibold">Data Geografis & Peta</td>
+                                    <td class="py-2.5 px-3">Badan Informasi Geospasial (BIG) & OpenStreetMap</td>
+                                    <td class="py-2.5 px-3">Digitasi koordinat geografis Pulau Kasu, P. Pecong, Belakang Padang, dan Sekupang.</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2.5 px-3 font-semibold">Data Fasilitas Kesehatan</td>
+                                    <td class="py-2.5 px-3">Kemenkes RI, Dinkes Kota Batam, Puskesmas Blk. Padang</td>
+                                    <td class="py-2.5 px-3">Data registrasi Pusdatin Kemenkes & profil operasional Pustu Kelurahan Kasu.</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2.5 px-3 font-semibold">Data Kesehatan Masyarakat</td>
+                                    <td class="py-2.5 px-3">Profil Kesehatan Kota Batam (Simulasi Teranonimkan)</td>
+                                    <td class="py-2.5 px-3">Data agregat epidemiologi dikombinasikan data simulasi anonim demi etika kerahasiaan.</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2.5 px-3 font-semibold">Transportasi, Jadwal & Tarif</td>
+                                    <td class="py-2.5 px-3">Dishub Kota Batam, Pengelola Tambatan & Operator Pompong</td>
+                                    <td class="py-2.5 px-3">Observasi lapangan waktu tempuh pelayaran dan wawancara tarif operator boat pancung/pompong.</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2.5 px-3 font-semibold">Cuaca Laut & Jaringan Internet</td>
+                                    <td class="py-2.5 px-3">BMKG Stasiun Meteorologi Hang Nadim & Kominfo / Survei</td>
+                                    <td class="py-2.5 px-3">Pemantauan tinggi gelombang maritim dan uji kekuatan sinyal seluler (4G/blankspot) di titik pulau.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- JAVASCRIPT LOGIC: NAVIGATION, MAPS, CHARTS, SIMULATION & EXPORT       -->
+    <!-- ===================================================================== -->
+    <script>
+        // -------------------------------------------------------------------
+        // 1. STATE & MOCK ANONYMIZED EPIDEMIOLOGICAL DATA (KELURAHAN KASU)
+        // -------------------------------------------------------------------
+        let casesData = [
+            { id: 'KSU-001', inisial: 'Tn. M', usia: '64 Thn', pulau: 'Pulau Kasu Induk (RW 01)', diagnosis: 'Hipertensi', status: 'Perlu Kunjungan Rumah', rencana: 'Kontrol TD 2x/mgg, kepatuhan Amlodipine, edukasi rendah garam' },
+            { id: 'KSU-002', inisial: 'Ny. S', usia: '29 Thn', pulau: 'Pulau Pecong (RW 03)', diagnosis: 'Ibu Hamil Risti', status: 'Siaga Rujukan', rencana: 'G3P2A0 UK 35 mgg + KEK & TD 145/95; rencana evakuasi dini ke Blk. Padang' },
+            { id: 'KSU-003', inisial: 'An. R', usia: '26 Bln', pulau: 'Pulau Pecong (RW 03)', diagnosis: 'Stunting / Gizi Kurang', status: 'Perlu Kunjungan Rumah', rencana: 'PMT pangan lokal ikan bilis/tongkol, pemantauan Z-score PB/U bulanan' },
+            { id: 'KSU-004', inisial: 'Tn. A', usia: '42 Thn', pulau: 'Pulau Kasu Pesisir (RW 02)', diagnosis: 'ISPA', status: 'Pantau Rutin', rencana: 'Terapi simptomatik, edukasi ventilasi rumah panggung & etika batuk' },
+            { id: 'KSU-005', inisial: 'Ny. H', usia: '58 Thn', pulau: 'Pulau Kasu Induk (RW 01)', diagnosis: 'Diabetes Melitus', status: 'Perlu Kunjungan Rumah', rencana: 'Cek GDS berkala di Pustu, perawatan kaki diabetik nelayan pesisir' },
+            { id: 'KSU-006', inisial: 'Tn. B', usia: '37 Thn', pulau: 'Pulau Teluk Bakau', diagnosis: 'Dermatitis / Penyakit Kulit', status: 'Pantau Rutin', rencana: 'Edukasi bilas air tawar pasca melaut & salep kortikosteroid topikal' },
+            { id: 'KSU-007', inisial: 'Ny. R', usia: '33 Thn', pulau: 'Pulau Kasu Pesisir (RW 02)', diagnosis: 'Ibu Hamil Risti', status: 'Siaga Rujukan', rencana: 'Riwayat SC sebelumnya (UK 36 mgg); koordinasi ambulans laut H-7' },
+            { id: 'KSU-008', inisial: 'An. F', usia: '19 Bln', pulau: 'Pulau Kasu Induk (RW 01)', diagnosis: 'ISPA', status: 'Pantau Rutin', rencana: 'Observasi frekuensi napas (MTBS), pastikan hidrasi & ASI adekuat' },
+            { id: 'KSU-009', inisial: 'Tn. Z', usia: '69 Thn', pulau: 'Pulau Pecong (RW 03)', diagnosis: 'Hipertensi', status: 'Perlu Kunjungan Rumah', rencana: 'Titip obat antihipertensi via kader Posyandu Pecong saat cuaca gelombang' },
+            { id: 'KSU-010', inisial: 'An. K', usia: '32 Bln', pulau: 'Pulau Teluk Bakau', diagnosis: 'Stunting / Gizi Kurang', status: 'Perlu Kunjungan Rumah', rencana: 'Edukasi pengolahan air hujan layak minum & pencegahan diare berulang' }
+        ];
+
+        // Tab Metadata for Header
+        const tabMeta = {
+            'dashboard': { badge: 'Modul 01', title: 'Dashboard Kesehatan Masyarakat Kepulauan Kasu', sub: 'Ringkasan Indikator Kesehatan, Cuaca Maritim BMKG & Sinyal Kominfo' },
+            'demografi': { badge: 'Modul 02', title: 'Data Demografi Penduduk & Profil Wilayah Kepulauan', sub: 'Karakteristik Geografis Gugusan Pulau & Distribusi Populasi Rentan' },
+            'kesehatan': { badge: 'Modul 03', title: 'Data Pemantauan Masalah Kesehatan (Kohort Anonim)', sub: 'Register Pemantauan Klinis Masyarakat Kepulauan oleh Perawat Komunitas' },
+            'faskes': { badge: 'Modul 04', title: 'Data Fasilitas Pelayanan Kesehatan', sub: 'Jejaring Layanan dari Pustu Kasu hingga Rumah Sakit Rujukan di Batam' },
+            'transportasi': { badge: 'Modul 05', title: 'Data Transportasi Laut dan Darat', sub: 'Jadwal, Tarif, Kapasitas Pompong, Boat Charter & Ambulans Laut' },
+            'peta-jarak': { badge: 'Modul 06', title: 'Pemetaan Jarak dan Waktu Tempuh Maritim', sub: 'Peta Digital Interaktif & Simulasi Pelayaran Antar-Pulau' },
+            'peta-penyakit': { badge: 'Modul 07', title: 'Pemetaan Distribusi Masalah Kesehatan', sub: 'Visualisasi Spasial Klaster Penyakit & Area Blankspot Kepulauan' },
+            'aksesibilitas': { badge: 'Modul 08', title: 'Informasi & Analisis Aksesibilitas Pelayanan Kesehatan', sub: 'Evaluasi Hambatan Geografis, Finansial, Cuaca & Konektivitas' },
+            'rujukan': { badge: 'Modul 09', title: 'Sistem Informasi Rujukan Kepulauan', sub: 'Alur Rujukan Berjenjang & Simulator Keputusan Triase Maritim' },
+            'laporan': { badge: 'Modul 10', title: 'Laporan, Desain Sistem (ERD) & Panduan Perawat', sub: 'Luaran Akademik, Arsitektur Sistem & Matriks Sumber Data' }
+        };
+
+        // -------------------------------------------------------------------
+        // 2. NAVIGATION & UI HELPERS
+        // -------------------------------------------------------------------
+        let mapJarakInstance = null;
+        let mapPenyakitInstance = null;
+        let currentRouteLayer = null;
+        let diseaseMarkersLayer = null;
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
+
+        function switchTab(tabId) {
+            // Hide all sections
+            document.querySelectorAll('.tab-section').forEach(el => el.classList.add('hidden'));
+            // Show target section
+            const target = document.getElementById('tab-' + tabId);
+            if (target) target.classList.remove('hidden');
+
+            // Update active button style
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-teal-600', 'text-white', 'shadow-md');
+                btn.classList.add('text-slate-300', 'hover:bg-white/10', 'hover:text-white');
+            });
+            const activeBtn = document.getElementById('nav-' + tabId);
+            if (activeBtn) {
+                activeBtn.classList.remove('text-slate-300', 'hover:bg-white/10', 'hover:text-white');
+                activeBtn.classList.add('bg-teal-600', 'text-white', 'shadow-md');
+            }
+
+            // Update Header Title
+            if (tabMeta[tabId]) {
+                document.getElementById('header-badge').textContent = tabMeta[tabId].badge;
+                document.getElementById('header-title').textContent = tabMeta[tabId].title;
+                document.getElementById('header-subtitle').textContent = tabMeta[tabId].sub;
+            }
+
+            // Close mobile sidebar if open
+            if (window.innerWidth < 1024) {
+                document.getElementById('sidebar').classList.add('-translate-x-full');
+                document.getElementById('sidebar-overlay').classList.add('hidden');
+            }
+
+            // Initialize or refresh Leaflet maps when their tabs become visible
+            if (tabId === 'peta-jarak') {
+                setTimeout(() => {
+                    initMapJarak();
+                    if (mapJarakInstance) mapJarakInstance.invalidateSize();
+                }, 100);
+            } else if (tabId === 'peta-penyakit') {
+                setTimeout(() => {
+                    initMapPenyakit();
+                    if (mapPenyakitInstance) mapPenyakitInstance.invalidateSize();
+                }, 100);
+            }
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bgColor = type === 'emergency' ? 'bg-rose-600' : 'bg-maritime-900';
+            const icon = type === 'emergency' ? 'fa-truck-medical' : 'fa-circle-check';
+            
+            toast.className = `${bgColor} text-white px-4 py-3 rounded-xl shadow-xl text-xs font-medium flex items-center gap-2.5 border border-white/15 transform transition-all duration-300 translate-y-2 opacity-0 pointer-events-auto max-w-sm`;
+            toast.innerHTML = `<i class="fa-solid ${icon} text-teal-300 text-sm"></i><span>${message}</span>`;
+            
+            container.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        // -------------------------------------------------------------------
+        // 3. MODULE 3: HEALTH MONITORING TABLE & ADD SIMULATION CASE
+        // -------------------------------------------------------------------
+        function renderCasesTable() {
+            const tbody = document.getElementById('cases-table-body');
+            const filterPulau = document.getElementById('filter-pulau').value;
+            const filterDiag = document.getElementById('filter-diagnosis').value;
+            const filterSearch = document.getElementById('filter-search').value.toLowerCase();
+
+            const filtered = casesData.filter(item => {
+                const matchPulau = filterPulau === 'ALL' || item.pulau === filterPulau;
+                const matchDiag = filterDiag === 'ALL' || item.diagnosis === filterDiag;
+                const matchSearch = item.id.toLowerCase().includes(filterSearch) || item.inisial.toLowerCase().includes(filterSearch);
+                return matchPulau && matchDiag && matchSearch;
+            });
+
+            tbody.innerHTML = '';
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-400">Tidak ada data simulasi yang sesuai dengan kriteria filter.</td></tr>`;
+                return;
+            }
+
+            filtered.forEach(item => {
+                let badgeClass = 'bg-emerald-100 text-emerald-800';
+                if (item.status === 'Perlu Kunjungan Rumah') badgeClass = 'bg-amber-100 text-amber-800';
+                if (item.status === 'Siaga Rujukan') badgeClass = 'bg-rose-100 text-rose-800 font-bold';
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+                tr.innerHTML = `
+                    <td class="py-3 px-3 font-mono font-bold text-teal-700">${item.id}</td>
+                    <td class="py-3 px-3"><strong class="text-slate-900">${item.inisial}</strong> <span class="text-slate-500">(${item.usia})</span></td>
+                    <td class="py-3 px-3 text-slate-700">${item.pulau}</td>
+                    <td class="py-3 px-3 font-semibold text-slate-900">${item.diagnosis}</td>
+                    <td class="py-3 px-3"><span class="px-2.5 py-0.5 rounded-full text-[11px] ${badgeClass}">${item.status}</span></td>
+                    <td class="py-3 px-3 text-slate-600 max-w-xs">${item.rencana}</td>
+                    <td class="py-3 px-3 text-center">
+                        <button onclick="referPatient('${item.id}', '${item.inisial}', '${item.pulau}')" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white font-semibold text-[11px] border border-rose-200 transition">
+                            Rujuk
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function toggleModalCase(show) {
+            const modal = document.getElementById('modal-add-case');
+            if (show) modal.classList.remove('hidden');
+            else modal.classList.add('hidden');
+        }
+
+        function addNewCase(e) {
+            e.preventDefault();
+            const nextNum = String(casesData.length + 1).padStart(3, '0');
+            const newEntry = {
+                id: 'KSU-' + nextNum,
+                inisial: document.getElementById('new-inisial').value,
+                usia: document.getElementById('new-usia').value,
+                pulau: document.getElementById('new-pulau').value,
+                diagnosis: document.getElementById('new-diagnosis').value,
+                status: document.getElementById('new-status').value,
+                rencana: document.getElementById('new-rencana').value
+            };
+            casesData.unshift(newEntry);
+            renderCasesTable();
+            toggleModalCase(false);
+            e.target.reset();
+            
+            // Update dashboard counter slightly
+            const kpiEl = document.getElementById('kpi-active-cases');
+            if (kpiEl) kpiEl.innerHTML = `${138 + casesData.length} <span class="text-sm font-medium text-slate-500">Kasus</span>`;
+            
+            showToast(`Data simulasi anonim ${newEntry.id} berhasil ditambahkan ke kohort.`);
+        }
+
+        function referPatient(id, inisial, pulau) {
+            switchTab('rujukan');
+            showToast(`Memuat protokol rujukan untuk pasien ${id} (${inisial}) dari ${pulau}.`, 'emergency');
+        }
+
+        // -------------------------------------------------------------------
+        // 4. MODULE 6 & 7: LEAFLET.JS MARITIME MAPS (KASU - BLK PADANG - BATAM)
+        // -------------------------------------------------------------------
+        const locations = {
+            kasu: { coords: [1.0772, 103.8161], name: 'Pulau Kasu Induk & Pustu Kasu', desc: 'Pusat Kelurahan Kasu (RW 01). Tersedia Pustu (1 Perawat, 1 Bidan) & Tambatan Perahu.' },
+            pecong: { coords: [1.0645, 103.8025], name: 'Pulau Pecong (RW 03)', desc: 'Pulau satelit berpenghuni (728 jiwa). Akses 15–20 menit pompong ke Pulau Kasu. Sinyal 4G lemah.' },
+            telukbakau: { coords: [1.0910, 103.8050], name: 'Pulau Teluk Bakau / Sekitar', desc: 'Gugusan pemukiman nelayan kecil. Area blankspot seluler; akses sangat terbatas.' },
+            blkpadang: { coords: [1.1481, 103.8872], name: 'Puskesmas Belakang Padang', desc: 'FKTP Induk & PONED Kecamatan. Pangkalan Ambulans Laut (35–45 mnt dari Kasu).' },
+            sekupang: { coords: [1.1255, 103.9275], name: 'Pelabuhan Sekupang & RSBP Batam', desc: 'Gerbang masuk Pulau Batam & RS rujukan spesialis (45–60 mnt speedboat dari Kasu).' },
+            rsud: { coords: [1.0458, 103.9632], name: 'RSUD Embung Fatimah Batam', desc: 'Rumah Sakit Rujukan Lanjutan Utama Kota Batam (Batu Aji).' }
+        };
+
+        const routeConfigs = {
+            'kasu-blkpadang': {
+                points: [locations.kasu.coords, [1.1120, 103.8480], locations.blkpadang.coords],
+                dist: '11,5 km (6,2 NM)',
+                baseTime: 40,
+                mode: 'Pompong Reguler / Ambulans Laut',
+                cost: 'Rp 25.000 (Reguler) / Gratis (BPJS)'
+            },
+            'pecong-kasu': {
+                points: [locations.pecong.coords, locations.kasu.coords],
+                dist: '2,4 km (1,3 NM)',
+                baseTime: 18,
+                mode: 'Pompong Antarpulau / Perahu Warga',
+                cost: 'Rp 15.000 / org (Charter Rp 100.000)'
+            },
+            'kasu-sekupang': {
+                points: [locations.kasu.coords, [1.1050, 103.8750], locations.sekupang.coords],
+                dist: '14,8 km (8,0 NM)',
+                baseTime: 50,
+                mode: 'Boat Pancung Charter / Ambulans Laut',
+                cost: 'Rp 500.000 (Charter) / Gratis (JKN Darurat)'
+            },
+            'sekupang-rsud': {
+                points: [locations.sekupang.coords, [1.0850, 103.9450], locations.rsud.coords],
+                dist: '14,2 km (Jalur Darat)',
+                baseTime: 25,
+                mode: 'Ambulans Darat PSC 119 / RS',
+                cost: 'Ditanggung JKN-KIS / Dinkes Batam'
+            }
+        };
+
+        function initMapJarak() {
+            if (mapJarakInstance) return;
+
+            mapJarakInstance = L.map('map-jarak').setView([1.1050, 103.8650], 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap | BIG & Dishub Batam'
+            }).addTo(mapJarakInstance);
+
+            // Add Markers
+            Object.values(locations).forEach(loc => {
+                L.marker(loc.coords)
+                    .addTo(mapJarakInstance)
+                    .bindPopup(`<div class="text-xs"><strong>${loc.name}</strong><br><span class="text-slate-600">${loc.desc}</span></div>`);
+            });
+
+            updateMaritimeRoute();
+        }
+
+        function resetMapView() {
+            if (mapJarakInstance) {
+                mapJarakInstance.setView([1.0772, 103.8161], 13);
+            }
+        }
+
+        function updateMaritimeRoute() {
+            const routeKey = document.getElementById('route-selector').value;
+            const weatherKey = document.getElementById('weather-selector').value;
+            const cfg = routeConfigs[routeKey];
+
+            let multiplier = 1;
+            let statusText = 'AMAN MELAYAR';
+            let statusClass = 'px-2 py-0.5 rounded bg-emerald-500 text-maritime-950 font-bold text-[10px]';
+            let lineColor = '#0D9488';
+
+            if (weatherKey === 'waspada') {
+                multiplier = 1.35;
+                statusText = 'WASPADA GELOMBANG';
+                statusClass = 'px-2 py-0.5 rounded bg-amber-400 text-maritime-950 font-bold text-[10px]';
+                lineColor = '#F59E0B';
+            } else if (weatherKey === 'ekstrem') {
+                multiplier = 1.75;
+                statusText = 'TUNDA POMPONG KECIL';
+                statusClass = 'px-2 py-0.5 rounded bg-rose-500 text-white font-bold text-[10px]';
+                lineColor = '#E11D48';
+            }
+
+            const estMinutes = Math.round(cfg.baseTime * multiplier);
+
+            document.getElementById('res-distance').innerHTML = cfg.dist;
+            document.getElementById('res-duration').textContent = `${estMinutes} Menit`;
+            document.getElementById('res-mode').textContent = cfg.mode;
+            document.getElementById('res-cost').textContent = cfg.cost;
+            
+            const badge = document.getElementById('res-status-badge');
+            badge.textContent = statusText;
+            badge.className = statusClass;
+
+            if (mapJarakInstance) {
+                if (currentRouteLayer) mapJarakInstance.removeLayer(currentRouteLayer);
+                currentRouteLayer = L.polyline(cfg.points, {
+                    color: lineColor,
+                    weight: 5,
+                    opacity: 0.85,
+                    dashArray: routeKey === 'sekupang-rsud' ? null : '10, 8'
+                }).addTo(mapJarakInstance);
+                mapJarakInstance.fitBounds(currentRouteLayer.getBounds(), { padding: [40, 40] });
+            }
+        }
+
+        function initMapPenyakit() {
+            if (mapPenyakitInstance) return;
+
+            mapPenyakitInstance = L.map('map-penyakit').setView([1.0760, 103.8120], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap | Surveilans Pustu Kasu'
+            }).addTo(mapPenyakitInstance);
+
+            diseaseMarkersLayer = L.layerGroup().addTo(mapPenyakitInstance);
+            setDiseaseLayer('ALL');
+        }
+
+        function setDiseaseLayer(layerType) {
+            // Update button UI
+            document.querySelectorAll('.disease-layer-btn').forEach(btn => {
+                btn.classList.remove('bg-teal-600', 'text-white');
+                btn.classList.add('bg-slate-100', 'text-slate-700');
+            });
+            const active = document.getElementById('btn-layer-' + layerType);
+            if (active) {
+                active.classList.remove('bg-slate-100', 'text-slate-700');
+                active.classList.add('bg-teal-600', 'text-white');
+            }
+
+            if (!mapPenyakitInstance || !diseaseMarkersLayer) return;
+            diseaseMarkersLayer.clearLayers();
+
+            const clusters = [
+                { coords: [1.0772, 103.8161], title: 'Pulau Kasu Induk (RW 01)', ALL: 64, HT: 28, ISPA: 16, KIA: 10, color: '#E11D48' },
+                { coords: [1.0815, 103.8210], title: 'Pulau Kasu Pesisir (RW 02)', ALL: 43, HT: 18, ISPA: 18, KIA: 6, color: '#F59E0B' },
+                { coords: [1.0645, 103.8025], title: 'Pulau Pecong (RW 03)', ALL: 32, HT: 12, ISPA: 8, KIA: 12, color: '#6366F1' },
+                { coords: [1.0910, 103.8050], title: 'Pulau Teluk Bakau (Blankspot)', ALL: 9, HT: 4, ISPA: 2, KIA: 2, color: '#0D9488' }
+            ];
+
+            clusters.forEach(c => {
+                const count = c[layerType] || c.ALL;
+                const radius = Math.max(14, count * 0.55);
+
+                L.circleMarker(c.coords, {
+                    radius: radius,
+                    fillColor: c.color,
+                    color: '#ffffff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.72
+                })
+                .bindPopup(`
+                    <div class="text-xs space-y-1">
+                        <strong class="text-slate-900">${c.title}</strong>
+                        <p class="font-bold text-teal-700">Jumlah Kasus (${layerType}): ${count} Kasus</p>
+                        <p class="text-slate-600">Rincian: HT (${c.HT}), ISPA (${c.ISPA}), KIA/Stunting (${c.KIA})</p>
+                    </div>
+                `)
+                .addTo(diseaseMarkersLayer);
+            });
+        }
+
+        // -------------------------------------------------------------------
+        // 5. MODULE 9: REFERRAL TRIAGE SIMULATOR
+        // -------------------------------------------------------------------
+        function calculateReferral() {
+            const origin = document.getElementById('ref-origin').value;
+            const triage = document.getElementById('ref-triage').value;
+            const weather = document.getElementById('ref-weather').value;
+
+            const badge = document.getElementById('ref-badge');
+            const output = document.getElementById('ref-output-card');
+
+            let dest = 'RSBP Batam (Sekupang) / RSUD Embung Fatimah';
+            let transport = 'Ambulans Laut Puskesmas Belakang Padang (Prioritas 1) atau Boat Charter Mesin Ganda';
+            let time = origin === 'Pulau Pecong' ? '60–75 Menit (Transit Kasu/Langsung Sekupang)' : '45–60 Menit ke Sekupang + 10–25 Menit Darat';
+            let prep = 'Pasang jalur IV line (RL/NaCl), oksigen nasal/NRM, pemantauan TTV tiap 15 menit, form rujukan SBAR & fotokopi KTP/BPJS.';
+
+            if (triage === 'MERAH') {
+                badge.textContent = 'TRIASE MERAH • EVAKUASI SEGERA';
+                badge.className = 'px-3 py-1 rounded-full bg-rose-600 text-white text-xs font-bold';
+            } else if (triage === 'KUNING') {
+                badge.textContent = 'TRIASE KUNING • MENDESAK';
+                badge.className = 'px-3 py-1 rounded-full bg-amber-500 text-white text-xs font-bold';
+                dest = 'UGD / PONED Puskesmas Belakang Padang';
+                transport = 'Ambulans Laut Puskesmas atau Pompong Charter';
+                time = origin === 'Pulau Pecong' ? '50–60 Menit' : '35–45 Menit';
+                prep = 'Stabilisasi tanda vital di Pustu Kasu, siapkan partus set/obat emergensi, hubungi bidan/dokter jaga Belakang Padang.';
+            } else {
+                badge.textContent = 'TRIASE HIJAU • TERENCANA';
+                badge.className = 'px-3 py-1 rounded-full bg-emerald-600 text-white text-xs font-bold';
+                dest = 'Poli Rawat Jalan Puskesmas Belakang Padang / RS Batam';
+                transport = 'Pompong Reguler Pagi (07.00 WIB)';
+                time = '40–45 Menit';
+                prep = 'Surat rujukan FKTP (P-Care BPJS), buku KIA/rekam medis hipertensi, dan jadwal keberangkatan pagi saat laut teduh.';
+            }
+
+            const weatherNote = weather === 'WASPADA'
+                ? `<div class="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900"><strong>Peringatan Cuaca BMKG:</strong> Gelombang 1.0–1.8 m. Wajib gunakan pelampung (<em>life jacket</em>) untuk pasien, pendamping, dan perawat; hindari perahu kayu kecil.</div>`
+                : `<div class="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900"><strong>Kondisi Laut Kondusif:</strong> Jalur pelayaran selat menuju Belakang Padang dan Sekupang aman dilalui.</div>`;
+
+            output.innerHTML = `
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                        <span class="text-slate-500 block">Fasilitas Tujuan Rujukan:</span>
+                        <strong class="text-slate-900 text-sm">${dest}</strong>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                        <span class="text-slate-500 block">Estimasi Total Waktu Tiba:</span>
+                        <strong class="text-rose-700 text-sm">${time}</strong>
+                    </div>
+                </div>
+                <div class="p-3 rounded-xl bg-sky-50 border border-sky-200">
+                    <span class="text-sky-800 font-bold block mb-0.5">Moda Transportasi Rekomendasi:</span>
+                    <p class="text-slate-800 font-medium">${transport}</p>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                    <span class="text-slate-800 font-bold block mb-0.5">Checklist Keperawatan Sebelum Berangkat:</span>
+                    <p class="text-slate-600">${prep}</p>
+                </div>
+                ${weatherNote}
+            `;
+        }
+
+        function triggerReferralDispatch() {
+            const origin = document.getElementById('ref-origin').value;
+            const triage = document.getElementById('ref-triage').value;
+            showToast(`Simulasi SBAR Rujukan (${triage}) dari ${origin} terkirim ke Puskesmas Belakang Padang & PSC 119!`, 'emergency');
+        }
+
+        // -------------------------------------------------------------------
+        // 6. MODULE 10: EXPORT CSV DATA
+        // -------------------------------------------------------------------
+        function exportCasesCSV() {
+            const headers = ['ID_Anonim', 'Inisial', 'Usia', 'Pulau_RW', 'Masalah_Kesehatan', 'Status_Klinis', 'Rencana_Keperawatan'];
+            const rows = casesData.map(c => [
+                c.id, `"${c.inisial}"`, `"${c.usia}"`, `"${c.pulau}"`, `"${c.diagnosis}"`, `"${c.status}"`, `"${c.rencana}"`
+            ]);
+            const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement('a');
+            link.setAttribute('href', encodedUri);
+            link.setAttribute('download', 'SIMKES_KASU_Kohort_Kesehatan_Anonim.csv');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('File CSV data pemantauan kesehatan (teranonimkan) berhasil diunduh.');
+        }
+
+        // -------------------------------------------------------------------
+        // 7. INITIALIZE CHARTS & DEFAULT VIEWS ON WINDOW LOAD
+        // -------------------------------------------------------------------
+        window.addEventListener('DOMContentLoaded', () => {
+            renderCasesTable();
+            calculateReferral();
+
+            // Chart 1: Dashboard Epidemiological Trend
+            const ctxTrend = document.getElementById('dashboardTrendChart').getContext('2d');
+            new Chart(ctxTrend, {
+                type: 'line',
+                data: {
+                    labels: ['Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov'],
+                    datasets: [
+                        {
+                            label: 'Hipertensi (PTM)',
+                            data: [54, 56, 59, 58, 60, 62],
+                            borderColor: '#0D9488',
+                            backgroundColor: 'rgba(13, 148, 136, 0.1)',
+                            tension: 0.35,
+                            fill: true,
+                            borderWidth: 2.5
+                        },
+                        {
+                            label: 'ISPA',
+                            data: [38, 45, 49, 41, 42, 44],
+                            borderColor: '#0284C7',
+                            backgroundColor: 'rgba(2, 132, 199, 0.08)',
+                            tension: 0.35,
+                            fill: true,
+                            borderWidth: 2.5
+                        },
+                        {
+                            label: 'Stunting & Gizi Kurang',
+                            data: [19, 18, 18, 17, 16, 16],
+                            borderColor: '#F59E0B',
+                            tension: 0.35,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Ibu Hamil Risti',
+                            data: [11, 12, 13, 15, 14, 14],
+                            borderColor: '#E11D48',
+                            tension: 0.35,
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 } } },
+                        x: { grid: { display: false }, ticks: { font: { size: 11 } } }
+                    }
+                }
+            });
+
+            // Chart 2: Demografi Struktur Usia
+            const ctxDemo = document.getElementById('demografiChart').getContext('2d');
+            new Chart(ctxDemo, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Balita (0-5 Thn)', 'Usia Sekolah (6-17 Thn)', 'Produktif (18-59 Thn)', 'Lansia (60+ Thn)'],
+                    datasets: [{
+                        data: [312, 684, 1852, 294],
+                        backgroundColor: ['#14B8A6', '#38BDF8', '#0F4C68', '#F59E0B'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '62%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 11, font: { size: 11 } } }
+                    }
+                }
+            });
+
+            // Chart 3: Indeks Aksesibilitas per Pulau
+            const ctxAkses = document.getElementById('aksesibilitasChart').getContext('2d');
+            new Chart(ctxAkses, {
+                type: 'bar',
+                data: {
+                    labels: ['P. Kasu Induk', 'P. Kasu Pesisir', 'P. Pecong', 'P. Teluk Bakau'],
+                    datasets: [{
+                        label: 'Indeks Aksesibilitas (0-100)',
+                        data: [76, 68, 52, 38],
+                        backgroundColor: ['#0D9488', '#0284C7', '#F59E0B', '#E11D48'],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { max: 100, beginAtZero: true, ticks: { font: { size: 10 } } },
+                        x: { ticks: { font: { size: 10 } } }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
